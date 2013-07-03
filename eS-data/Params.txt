@@ -1,0 +1,5 @@
+# this parameter file is used to find data
+
+#==============================================================================#
+# data location
+eS-data : /Users/dylangregersen/Desktop/Astrophysics/documents/eyeSpec/eyeSpec/
