@@ -7,8 +7,9 @@
 #   eyeSpec core
 #
 # MODIFICATION HISTORY:
-#    13, Jun 2013: Dylan Gregersen
-#
+#    13, June 2013: Dylan Gregersen
+#    3,  July 2013: Dylan Gregersen
+#                   more notes about necessary functions
 #
 
 #==============================================================================#
@@ -31,26 +32,30 @@ import re
 found_wx = True
 try: import wxversion
 except: found_wx = False
+
 if found_wx:
     wxversion.ensureMinimal('2.8')
     import wx
+    from wx.lib.newevent import NewEvent
 else:
     print "HeadsUp: Many of the progams written in eyeSpec rely on wxPython which did not import into your version of python (try >> import wx) many of the more advanced interactive data editing probably won't work"
     wx = None
 
-from wx.lib.newevent import NewEvent
 
 #==============================================================================#
 # pyfits
-import pyfits
+try: import pyfits
+except: raise ValueError("module pyfits is required for reading in data")
 
 #==============================================================================#
 # pickle
-import cPickle as pickle
+try: import cPickle as pickle
+except: raise ValueError("module cPickle is required")
 
 #==============================================================================#
 # numpy
-import numpy
+try: import numpy
+except: raise ValueError("module numpy is required: http://www.numpy.org/")
 np = numpy
 check_version = numpy.__version__.split(".")
 meets_min = True
