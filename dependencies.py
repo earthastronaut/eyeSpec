@@ -14,18 +14,18 @@
 
 #==============================================================================#
 # Modules
-import math
-import time
-import os
-import sys
-from copy import deepcopy
-import pdb
+import math #@UnusedImport
+import time #@UnusedImport
+import os #@UnusedImport
+import sys #@UnusedImport
+from copy import deepcopy #@UnusedImport
+import pdb #@UnusedImport
 import operator
 iget = operator.itemgetter
-import threading
-import Queue
-import subprocess
-import re
+import threading #@UnusedImport
+import Queue #@UnusedImport
+import subprocess #@UnusedImport
+import re #@UnusedImport
 
 #==============================================================================#
 # wxPython
@@ -36,7 +36,7 @@ except: found_wx = False
 if found_wx:
     wxversion.ensureMinimal('2.8')
     import wx
-    from wx.lib.newevent import NewEvent
+    from wx.lib.newevent import NewEvent #@UnusedImport
 else:
     print "HeadsUp: Many of the programs written in eyeSpec rely on wxPython which did not import into your version of python (try >> import wx) many of the more advanced interactive data editing probably won't work"
     wx = None
@@ -46,12 +46,12 @@ def check_for_wx ():
 
 #==============================================================================#
 # pyfits
-try: import pyfits
+try: import pyfits #@UnusedImport
 except: raise ValueError("module pyfits is required for reading in data")
 
 #==============================================================================#
 # pickle
-try: import cPickle as pickle
+try: import cPickle as pickle #@UnusedImport
 except: raise ValueError("module cPickle is required")
 
 #==============================================================================#
@@ -70,12 +70,12 @@ elif c1 == 1 and c2 < 6: meets_min = False
 elif c1 == 1 and c2 == 6 and c3 < 1: meets_min = False
 if not meets_min: print "Warning: Numpy version is less than minimum, may encounter errors. 1.6.1 > "+check_version
 
-import numpy.lib.recfunctions as np_recfunc
+import numpy.lib.recfunctions as np_recfunc #@UnusedImport
 
 
 #==============================================================================#
 # scipy
-import scipy
+import scipy #@UnusedImport
 check_version = scipy.__version__.split(".")
 meets_min = True
 c1 = check_version[0]
@@ -103,19 +103,19 @@ if matplotlib.rcParams['backend'] != 'WXAgg':
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg
 FigureCanvas = FigureCanvasWxAgg
 
-from matplotlib.backends.backend_wx import NavigationToolbar2Wx
-from matplotlib.figure import Figure
+from matplotlib.backends.backend_wx import NavigationToolbar2Wx #@UnusedImport
+from matplotlib.figure import Figure #@UnusedImport
 
-from matplotlib.widgets import Button
-import matplotlib.pylab as plt
+from matplotlib.widgets import Button #@UnusedImport
+import matplotlib.pylab as plt #@UnusedImport
 #from matplotlib.ticker import LinearLocator, MultipleLocator
-from matplotlib.pylab import FormatStrFormatter, savefig
-from matplotlib.path import Path
+from matplotlib.pylab import FormatStrFormatter, savefig #@UnusedImport
+from matplotlib.path import Path #@UnusedImport
 
 
 if __name__ != "__main__":
     #==============================================================================#
     # resampling
-    import resampling
+    import resampling #@UnusedImport
 
 

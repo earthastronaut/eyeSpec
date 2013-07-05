@@ -1,7 +1,7 @@
 if __name__ != '__main__':
-    import eyeSpec
-    from eyeSpec.dependencies import np, os, time, deepcopy, pdb, pickle
-    from eyeSpec.resampling import get_resampling_matrix, Gaussian_Density
+    import pdb #@UnusedImport
+    from dependencies import np, os, deepcopy
+    from resampling import get_resampling_matrix, Gaussian_Density
 
 pass
 ########################################################################################
@@ -58,7 +58,7 @@ def smooth_data_to_resolution (spec_obj,R):
     ============    ===========================================================
 
     """
-    print "Currently not available, see code for notes"
+    print "Currently not available, see code for notes",spec_obj,R
     # check current resolution of spec_obj
     
     # new_wls = wls.copy()
@@ -194,28 +194,29 @@ def find_overlap_pts (spec):
 
     """
     overlap_pts = []
-    previous_ord = []
+    previous_order = []
     i = 0
-    for ord in spec:
-        if len(previous_ord)==0:
-            previous_ord.append([np.min(ord[0]),np.max(ord[0])])
+    for order in spec:
+        if len(previous_order)==0:
+            previous_order.append([np.min(order[0]),np.max(order[0])])
             continue
         # check to make sure we're going the right way
-        if previous_ord[-1][0] > np.min(ord[0]):
+        if previous_order[-1][0] > np.min(order[0]):
             print "WARNING: PREVIOUS HAS LARGER VALUE" #!! error
         
         
-        for i in range(len(previous_ord)):
-            i = -1*(i+1) # go in reverse order
-            if previous_ord[i][1] > np.min(ord[0]) and i==-1:
-                midpt = (previous_ord[i][1] + np.min(ord[0]))/2
+        for i in range(len(previous_order)):
+            i = -1*(i+1) # go in reverse orderer
+            if previous_order[i][1] > np.min(order[0]) and i==-1:
+                midpt = (previous_order[i][1] + np.min(order[0]))/2
                 overlap_pts.append(midpt)
 
-            elif previous_ord[i][1] > np.min(ord[0]) and i!=-1:
-                print 'WARNING: OVERLAP FOUND FOR MORE THAN 2 ORDERS WHEN LOOKING AT RANGE:',np.min(ord[0]),'to',np.max(ord[0])
+            elif previous_order[i][1] > np.min(order[0]) and i!=-1:
+                print 'WARNING: OVERLAP FOUND FOR MORE THAN 2 ORDERS WHEN LOOKING AT RANGE:',np.min(order[0]),'to',np.max(order[0])
                 
-        previous_ord.append([np.min(ord[0]),np.max(ord[0])])
-
+        previous_order.append([np.min(order[0]),np.max(order[0])])
+    
+    
     if len(overlap_pts) == 0: #!! AND VERBOSE
         print 'NO OVERLAP FOUND'
     return overlap_pts
@@ -244,26 +245,71 @@ def get_bounds (prompt,lower_too=False,default=(0,1e20),display_help='No Help Av
         print "Invalid input. Type 'help' for more info."
        
 def yesno (question="Please choose:",default_answer='n',prompt=None):
+    """
+PURPOSE:
+    Prompt for a yes or no question and return True or False respectively
+   
+CATEGORY:
+    User functions
+
+INPUT ARGUMENTS:
+    None
+
+INPUT KEYWORD ARGUMENTS:
+   question : (string) This becomes the prompt with ('yes','no') appended to the end
+   default_answer : (string or boolean) if True or 'y' then enter gives that True, conversely for False and 'n'
+   prompt: (string) Over-rules the question and just uses the string for the prompt
+   
+OUTPUTS:
+    (boolean) True if answered yes, False if answered no
+       
+DEPENDENCIES:
+   External Modules Required
+   =================================================
+   None
+   
+   External Functions and Classes Required
+   =================================================
+    None
+       
+NOTES:
+   (1) If default answer is given then the ('yes','no') will become ('yes',['no']) or (['yes'],'no') with the [] giving the default value when enter is hit
+    
+
+EXAMPLE:
+   >>> if yesno("Please enter yes or no",'n'): print "Yes!"*100
+
+MODIFICATION HISTORY:
+    15, July 2013: Dylan Gregersen
+
+    """   
+    if type(default_answer) == bool:
+        if default_answer: default_answer='y'
+        else: default_answer = 'n'
+    else: default_answer = default_answer.lower()[0]
+    
     question = str(question)
+
+    if prompt is None: 
+        if   default_answer == 'n': prompt = question+"('yes',['no'])\n"
+        elif default_answer == 'y': prompt = question+"(['yes'],'no')\n"
+        else: prompt = question+"('yes','no')\n"
+    
+    # get the user answer
     while True:
-        if prompt is None: 
-            if default_answer == 'n': prompt = question+"('yes',['no'])\n"
-            elif default_answer == 'y': prompt = question+"(['yes'],'no')\n"
-            else: prompt = question+"('yes','no')\n"
-        choice = raw_input(str(prompt))
-        if choice.lower() in ['n','no']: return False #'n'
-        elif choice.lower() in ['y','yes']: return True #'y'
-        elif choice.lower() == '':
-            if default_answer == 'n': return False #'n'
-            elif default_answer == 'y': return True #'y'
+        choice = raw_input(str(prompt)).lower()
+        if choice in ('n','no'): return False #'n'
+        elif choice in ('y','yes'): return True #'y'
+        elif choice == '' and default_answer=='n': return False
+        elif choice == '' and default_answer=='y': return True
         else: print "Please answer 'yes','no','y', or 'n'"
 
-def _find_matches (xrange,obj):
+def _find_matches (xbounds,obj):
     """
-    Find the orders in obj which have values within the xrange
+    Find the orders in obj which have values within the xbounds
 
     INPUTS:
-    xrange : array type of length 2
+    xbounds : array type of length 2
     obj : of type eyeSpec_spec
 
     """
@@ -273,108 +319,152 @@ def _find_matches (xrange,obj):
     
     orders = []
     
-    for i in xrange(len(wl_arr)):
+    for i in xbounds(len(wl_arr)):
         dmin = np.min(wl_arr[i])
         dmax = np.max(wl_arr[i])
         dmid = (dmin+dmax)/2.
         
-        if (dmin > min(xrange) or dmid > min(xrange) or dmax > min(xrange)) and  (dmin < max(xrange) or dmid < max(xrange) or dmax < max(xrange)):
+        if (dmin > min(xbounds) or dmid > min(xbounds) or dmax > min(xbounds)) and  (dmin < max(xbounds) or dmid < max(xbounds) or dmax < max(xbounds)):
             orders.append(i)
             
     return orders
         
-def get_filename (propmt='default',iotype='r',default=None,enter_multi = False,filename=None,find_filename=False):
+def get_filename (prompt='ENTER FILENAME:', iotype='r', default=None, enter_multi = False, filename=None, find_filename=False):
     """
-    Prompts user for a file name and then does some checks
+PURPOSE:
+   To interactively get filenames
+   
+CATEGORY:
+   User functions
 
-    INPUTS:
-    iotype : 'r' or 'w' to see whether user wants to read or write information
-    enter_multi : (NOT CURRENTLY SUPPORTED) enter multiple file names
-    prompt : give a different prompt
-    filename : give a name to check
+INPUT ARGUMENTS:
+   None
 
-    """
-    only_check_file = False
-    if filename is not None: only_check_file = True
+INPUT KEYWORD ARGUMENTS:
+   prompt  : (string) The string to appear as the prompt for giving files
+   iotype  : (string) either 'r' or 'w' for read or write
+   default : (--) This object will be returned as a default value from the function
+   enter_multi : (bool) If True it will prompt for entering multiple files
+   filename : (string) a filename to check and then prompt for another if it isn't appropriate entry
+   fine_filename : (bool) If True then if the file is not found it will prompt for finding it again
+   
+OUTPUTS:
+   if enter_multi: (list) gives a list of the entered values or the default 
+   else: (string) gives the filename or the default
 
-    def _enter_filename ():
-        if prompt == 'default': fname = raw_input("ENTER FILENAME: \n")
-        else:fname = raw_input(str(prompt)+" \n")
-        return fname.strip()
+DEPENDENCIES:
+   External Modules Required
+   =================================================
+    os, raw_input, deepcopy
+   
+   External Functions and Classes Required
+   =================================================
+    yesno
+       
+NOTES:
+   (1) Appropriate entry means that if iotype if 'r' then the file should exist if iotype if 'w' then it shouldn't or if prompts for overwriting the file
+
+   (2) This creates lists of the files using set so you won't get repeats of files 
+
+EXAMPLE:
+   >>> fname = get_filename()
+
+MODIFICATION HISTORY:
+    5, July 2013: Dylan Gregersen
+                   
+    """  
+    base_prompt = deepcopy(prompt)
+    
+    check_filename = (filename != None)
+      
+    files = set([])
+      
+    i = 0
         
+    # Loop     
     while True:
-        re_enter = False
-        break_all = False
+        if enter_multi: prompt = "["+format(i,"2")+"] "+base_prompt
+        
+        # Get the filename
+        if check_filename: fname = str(filename)
+        else:            
+            fname = raw_input(str(prompt))
+            
+            # view options
+            if fname == '\t': 
+                print "PWD>> "+os.path.abspath('.')
+                print "-"*60
+                os.system('ls')
+                print ""
+                continue
+            # ignore blank lines
+            if len(fname.split())==0: 
+                if enter_multi: print "To stop entering files enter '.'"
+                continue
+            
+            # spaced objects
+            if len(fname.split()) > 1:
+                print "Please only enter one file name at a time"
+                continue
+            
+            # abort entering files
+            if   fname in ('a','abort'): return default
+            elif fname in ('h','help','?'):
+                print "This routine allows you to enter files and will check to make sure you gave an appropriate response\n"
+                if enter_multi: print "Entering multiple files, to stop enter filename '.'"
+                
+                print "The current default output is : "+str(default)
+                print ""
+                print "-"*60
+                print "options:"
+                print "[a]bort - will break the file enter loop"
+                print "[h]elp  - will display this help screen"
+                print "tab     - will display 'ls' of the PWD"
+                print ".       - when entering multiple files this acts as an EOF"
+                print ""
+                continue
+                
+            if enter_multi and fname == '.': break
+        
+        
+        good_file = True
+        
+        # check if file exists and trying to write over
+        if os.path.isfile(fname) and iotype == 'w':
+            if check_filename: print "File given '"+fname+"'"
+            if yesno("WARNING: File exists, OK to overwrite?",'n'): good_file = True
+            else: good_file = False
+                    
+        elif not os.path.isfile(fname) and iotype == 'r': # file does not exist
+            if check_filename: print "File given '"+fname+"'"
+            print "File does not exist "
+            good_file = False
 
-        if only_check_file: fname = str(filename)
-        else:
-            print " "
-            fname = _enter_filename()
-            # check input
-            if len(fname.split())==0:
-                # or I could create a file list if more are entered
-                print "please enter a file name"
-                re_enter = True
+            
+        # you can only check the first filename given
+        check_filename=False    
+        
+        # check 
+        if good_file:
+            if enter_multi and find_filename and i == 0 : print "[ 0] gave file "+fname
+             
+            files.add(fname)
+            i += 1
+            
+        # else try again
+        elif not good_file and find_filename: continue
+        
+        if not enter_multi: break
 
-            # enter a list of files:
-            if len(fname.split()) > 1 and not enter_multi:
-                print "plese only enter one file name"
-                re_enter = True
-
-
-        if not re_enter:
-            fname = fname.split()
-            if fname[0] in ['a','abort']:
-                return default
-
-        # check if file exists
-        if not re_enter:
-            new_f = {}
-            for i in range(len(fname)):
-                ffile = fname[i]
-
-                if os.path.exists(ffile) and iotype == 'w':
-                    while True:
-                        clobber = raw_input("WARNING: FILE EXISTS, OK TO OVERWRITE? (y,[n])\n")
-                        if clobber in ['yes','y']:
-                            clobber = True
-                            break
-                        elif clobber in ['no','n','']:
-                            if find_filename:
-                                print "PLEASE ENTER NEW FILENAME"
-                                re_enter = True
-                            else:
-                                clobber = False
-                                re_enter = False
-                            break
-                        else: print "please enter yes or no"
-
-                            
-                        
-                elif not os.path.exists(ffile): # file does not exist
-                    clobber = False
-                    if iotype == 'r':
-                        #new_f[i] = raw_input("ERROR: File <"+ffile+"> does not exist, enter new file name or abort (a):\n")
-                        #if new_f[i] == 'a':
-                        #    break_all= True
-                        #    break
-                        print "ERROR: File does not exist: '"+ffile+"'"
-                        if find_filename:
-                            print "PLEASE ENTER NEW FILENAME"
-                            re_enter = True
-                        else:
-                            re_enter = False
-
-        # check to make sure
-        if break_all or not re_enter: break
-    return fname[0]
+    files = list(files)        
+    if   len(files) == 0: return default
+    elif enter_multi: return files
+    else: return files
 
 def deletevars(varlist):
     for var in varlist:
-        if var in globals(): del var
+        try: del var
+        except: pass
+        
 
-def variablename(var):
-     import itertools
-     # !! put in a try and error statement incase the variable is not in globals
-     return [tpl[0] for tpl in itertools.ifilter(lambda x: var is x[1], globals().items())][0]
 
