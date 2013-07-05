@@ -38,9 +38,11 @@ if found_wx:
     import wx
     from wx.lib.newevent import NewEvent
 else:
-    print "HeadsUp: Many of the progams written in eyeSpec rely on wxPython which did not import into your version of python (try >> import wx) many of the more advanced interactive data editing probably won't work"
+    print "HeadsUp: Many of the programs written in eyeSpec rely on wxPython which did not import into your version of python (try >> import wx) many of the more advanced interactive data editing probably won't work"
     wx = None
 
+def check_for_wx ():
+    if not found_wx: raise ValueError("This program relies on wxPython and wxversion which weren't found")
 
 #==============================================================================#
 # pyfits

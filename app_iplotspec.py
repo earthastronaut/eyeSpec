@@ -15,6 +15,7 @@ if __name__ != '__main__':
 
 
 
+
 class iPlotSpec:
     
     def __init__ (self,ax,spec_obj,add_xy,xy_mplkwargs):
@@ -462,7 +463,6 @@ EXAMPLE:
 MODIFICATION HISTORY:
     13, Jun 2013: Dylan Gregersen    
     """
-    
     # is linelist a file name
     if type(linelist) in (np.string_,np.str,str): 
         
