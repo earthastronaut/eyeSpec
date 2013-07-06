@@ -5,16 +5,20 @@
 #===============================================================================#
 ######################## USER SETUP #############################################
 
+
 executables = {'moog'      :'/Applications/astro/Moog/MOOG',
                'moog07'    :"/uufs/astro.utah.edu/common/astro_data/products/moog2007-3/MOOG",
                'moogsilent':'/Applications/astro/Moog/MOOGSILENT',
-               'makekurucz':'/Applications/astro/makekurandy/makekurucz3.e'}
+               
+               # LTE atmosphere code
+               'makekurucz':'/Applications/astro/makekurandy/makekurucz3.e',
+               'marcs'     :"/uufs/astro.utah.edu/common/astro_data1/iivans/anderton/marcs_interpolator/interpolate_marcs.py"}
 
 ######################## USER SETUP #############################################
 #===============================================================================#
 
 # Modules
-from kurucz_atmospheres import create_kurucz_atmo_model, run_create_atmo_model
+from lte_atmospheres import create_lte_atmosphere
 
 from moog import synth as moog_synth
 from moog import ewfind as moog_ewfind
