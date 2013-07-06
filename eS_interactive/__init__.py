@@ -1,5 +1,7 @@
 # 
 
+from eyeSpec import __path__ as eyeSpec_path #@UnresolvedImport
+
 from eyeSpec.dependencies import check_for_wx #@UnresolvedImport
 check_for_wx()
 
