@@ -28,7 +28,8 @@ plotspec = plot_spec
 #==============================================================================# 
 # from interactive import *
   
-  
+from stellar_atmospheres import *
+ 
 #==============================================================================#
 # import SPECTRE emulator
 #import SPECTRE_emulator as SP
