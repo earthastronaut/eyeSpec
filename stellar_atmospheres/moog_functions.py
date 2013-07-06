@@ -1,9 +1,9 @@
 # these are functions which are useful for dealing with MOOG, independent of the MOOG executable
 
-if __name__ != "__main__":
-    from eyeSpec import Params
-    from eyeSpec.dependencies import np, os, time, deepcopy, pdb, np_recfunc, plt, re
-    from eyeSpec.base_functions import yesno
+import pdb #@UnusedImport
+from eyeSpec.dependencies import np, os, time, deepcopy, np_recfunc, re #@UnresolvedImport
+from eyeSpec.core import yesno #@UnresolvedImport
+
 
 pass
 #####################################################################################################################
@@ -197,7 +197,6 @@ MODIFICATION HISTORY:
 
     # create a numpy array and return
     elif return_as in ('array','as np','arr'):
-        import numpy as np
         batom_np = np.array([[arr[0],arr[3]] for arr in batom])
         return batom_np
 
@@ -604,17 +603,17 @@ MODIFICATION HISTORY:
         return True
 
     def moog_keyword_values (keyword,opts,default,terminal=False):
-         if confirm_opts(keyword,opts): 
-             val = moogpars[keyword]
-             del moogpars[keyword]
-         else: val = opts[default]
-         if val is None: return
-         
-         # !! could avoid including if you don't want
-         if terminal: line = format_keyword(keyword)+"'"+str(val)+"'"
-         else: line = format_keyword(keyword)+format(val,'<6')
-         parlines.append(line)
-         pars[keyword] = val
+        if confirm_opts(keyword,opts): 
+            val = moogpars[keyword]
+            del moogpars[keyword]
+        else: val = opts[default]
+        if val is None: return
+        
+        # !! could avoid including if you don't want
+        if terminal: line = format_keyword(keyword)+"'"+str(val)+"'"
+        else: line = format_keyword(keyword)+format(val,'<6')
+        parlines.append(line)
+        pars[keyword] = val
          
     def moog_filename (keyword,which,clobber=True,default=None):
         if keyword in moogpars: fname = str(moogpars[keyword])
@@ -901,7 +900,7 @@ MODIFICATION HISTORY:
     not_avail('opacit')
     
     
-    for key in moogpars: print "Keyword unknown to MOOG pars :"+str(keyword)
+    for key in moogpars: print "Keyword unknown to MOOG pars :"+str(key)
     
     if filename is None: return parlines
     else:
@@ -1148,8 +1147,6 @@ MODIFICATION HISTORY:
             break
 
     # get the wavelength information
-    overshoot = 5 # Angstroms
-    fill = 1.0
     wls = []
     wlvalue = params[0] 
 
@@ -1202,7 +1199,7 @@ INPUT LINES DATA FOR  2476 LINES
         return float(val)
 
     if strongline:
-        input = int(line[:3])
+        moog_input = int(line[:3])
         wl = convert_to_float(line[3:13])
         species = line[13:30]        
         ep = float(line[30:38])
@@ -1212,7 +1209,7 @@ INPUT LINES DATA FOR  2476 LINES
         ew = 0.0
     else:
         # for input lines
-        input = int(line[:5])
+        moog_input = int(line[:5])
         wl = convert_to_float(line[5:15])
         species = line[15:32]
         ep = float(line[32:40])
@@ -1227,7 +1224,7 @@ INPUT LINES DATA FOR  2476 LINES
     
     loggf = np.log10(gf)
 
-    return input, wl, spe_name, spe, ep, loggf, damptype, strength, ew
+    return moog_input, wl, spe_name, spe, ep, loggf, damptype, strength, ew
 
 def parse_synth_standard_out (fname):
     """
@@ -1310,7 +1307,7 @@ MODIFICATION HISTORY:
         strongline = pair[2]
         for i in xrange(pair[0],pair[1]):
             line = lines[i].rstrip()          
-            input, wl, spe_name, spe, ep, loggf, damptype, strength, ew = data_table_line_parser(line,strongline,scale_up_strength)
+            _, wl, spe_name, spe, ep, loggf, damptype, strength, ew = data_table_line_parser(line,strongline,scale_up_strength)
             
             data_table.append((wl, spe_name, spe, ep, loggf, damptype, strength, ew))
             spe_names.append(spe_name)
@@ -1681,7 +1678,7 @@ MODIFICATION HISTORY:
         
     # get the (wl,flux) data from the summary out file(s)
     # !! could create so that you have a filelist
-    synth,header = parse_synth_summary_out(summary_out) 
+    synth, _header = parse_synth_summary_out(summary_out) 
     synth_smoothed = synth.copy()
     
     do_smoothing = (smoothing_func is not None)
@@ -1904,7 +1901,7 @@ MODIFICATION HISTORY:
     
     statlineexp = re.compile(r"average abundance = +\d\.\d\d +std\. +deviation = +\d\.\d\d")
     
-    modellineexp = re.compile(r"\d+g\d\.\d\dm-?\d\.\d+\v\d")
+    # modellineexp = re.compile(r"\d+g\d\.\d\dm-?\d\.\d+\v\d")
     currentspecies = None
     
     for line in infile:
@@ -1947,3 +1944,4 @@ MODIFICATION HISTORY:
             out_ldat.append((ldm[0], species_id_num, ldm[1], ldm[2], ldm[3], ldm[5]))
     out_ldat = np.array(out_ldat)
     return out_ldat
+

@@ -1,25 +1,11 @@
-#===============================================================================#
-######################## USER SETUP #############################################
-
-moog_exe = '/Applications/astro/Moog/MOOG'
-
-moog07_exe = "/uufs/astro.utah.edu/common/astro_data/products/moog2007-3/MOOG"
-
-moogsilent_exe = '/Applications/astro/Moog/MOOGSILENT'
-
-makekurucz_exe = '/Applications/astro/makekurandy/makekurucz3.e'
-
-######################## USER SETUP #############################################
-#===============================================================================#
 
 # Modules
-if __name__ != "__main__":
-    from eyeSpec.dependencies import np, os, time, pdb, deepcopy, plt, subprocess
-    from eyeSpec.moog_functions import (get_model_name, read_moog_linelist, write_moog_par, write_moog_lines_in,
-                                        parse_synth_summary_out, parse_synth_standard_out, crop_data_table,
-                                        simple_llist_data)
-    from eyeSpec.base_functions import get_bounds, get_filename
-    
+import pdb #@UnusedImport    
+from eyeSpec.stellar_atmospheres import moog_exe, moog07_exe, moogsilent_exe #@UnresolvedImport
+from eyeSpec.dependencies import np, os, time, subprocess, threading #@UnresolvedImport
+from eyeSpec.core import get_bounds, get_filename #@UnresolvedImport
+from moog_functions import read_moog_linelist, write_moog_par, write_moog_lines_in, simple_llist_data, get_model_name
+
 ################################################################################
 # check the input executables
 # to declaire these variables go up to the USER SETUP area
@@ -32,164 +18,13 @@ _moog07_avail_error = "Must have MOOG 2007-3 executable declared to use this fun
 is_moogsilent_avail = os.path.isfile(moogsilent_exe)
 _moogsilent_avail_error = "Must have MOOGSILET executable declared to use this function not: "+moogsilent_exe
 
-is_makekurucz_avail = os.path.isfile(makekurucz_exe)
-_makekurucz_avail_error = "Must have makekurucz executable declared to use this function not: "+makekurucz_exe
-
 ################################################################################
 
-def create_kurucz_atmo_model (teff,logg,feh,turb,modtype='ODFNEW',filename='FINALMODEL',verbose=True, clean_up=True):
-    """
-PURPOSE:
-   To use the makekurucz Fortan interpreter to create stellar atmosphere models for MOOG 
-   
-CATEGORY:
-   Stellar Atmospheres
+pass
+#=============================================================================#
+# basic MOOG calls
 
-INPUT ARGUMENTS:
-    teff : (float) stellar effective temperature
-    logg : (float) gravitational acceleration at the surface of the star
-    feh  : (float) Normalized solar metallicity [Fe/H]
-    vt   : (float) stellar microturbulence
-    
-INPUT KEYWORD ARGUMENTS:
-    modtype : (string) the type of model used, Possible Choices ->
-        ODFNEW -> 
-        AODFNEW -> Same as the ODFNEW only with an alpha enhancement
-        NOVER ->
-        KUROLD ->
-    filename : (string) Give the output filename. If 'rename' it will use the naming convention
-                {teff}p{logg}mp{feh}p{vt}.modtype
-    verbose : (bool) If True you get verbose output
-    clean_up : (bool) Wll remove files : M1, M2, MOD*
-
-OUTPUTS:
-   (bool) Model creation, if the parameters were correct and the model created it returns True
-
-DEPENDENCIES:
-   External Modules Required
-   =================================================
-   subprocess 
-   
-   External Functions and Classes Required
-   =================================================
-    get_model_name  
-       
-NOTES:
-   (1) There are limits in the interpolation of Kurucz. If a limit is passed the function will return False
-        3500 < teff < 10000
-        0 < logg < 5
-        -5 < feh < 1.0
-
-    (2) If you give a feh > 1.0 then it will multiply by negative 1 (e.g. 2.13==> -2.13)
-
-    (3) The individual modtypes may have inherent limits as well (e.g. feh in ODFNEW >= -2.5)
-    
-    (4) This function won't work if the makekurucz_exe is not declared
-    
-    (5) This will also overwrite any file names 'FINALMODEL'
-    
-EXAMPLE:
-   >>> create_kurucz_atmo_model(5000, 4.1, -2.13, 1.1, modtype='aodfnew', filename='rename')
-   >>>
-   >>> ls
-   5000p410m213p110.aodfnew
-
-MODIFICATION HISTORY:
-    13, Jun 2013: Dylan Gregersen
-    """
-    assert is_makekurucz_avail, _makekurucz_avail_error
-    MAKEKURUCZ_EXE = makekurucz_exe
-    
-    # impose kurucz limits
-    if not (3500 < teff < 10000):
-        if verbose: print "Teff is out of kurucz range (3500,10000): "+str(teff)
-        return False
-
-    if not (0 < logg < 5):
-        if verbose: print "Logg is out of kurucz range (0,5): "+str(logg)
-        return False
-
-    if feh > 1.0: 
-        if verbose: print "[Fe/H] given larger than 1, multiplying by negative one"
-        feh *= -1.0
-        
-    if not (-5 < feh < 1.0):
-        if verbose: print "[Fe/H] is out of kurucz range (-5,1): "+str(feh)
-        return False
-
-    modtype=modtype.upper()
-    pos_modtypes = ['KUROLD', 'ODFNEW', 'AODFNEW', 'NOVER']
-    if modtype not in pos_modtypes:
-        if verbose: print "Model type must be in: "+", ".join(pos_modtypes)
-        return False
-
-    inp = " ".join([str(teff), str(logg), str(feh), str(turb),"\n"+modtype])+"\n"
-
-    devnull = open('/dev/null', 'w')
-    makeKurucz = subprocess.Popen(MAKEKURUCZ_EXE, stdin=subprocess.PIPE,stdout=devnull)
-    devnull.close()
-    makeKurucz.communicate(input=inp)
-
-
-    if filename == 'rename': filename = get_model_name(teff,logg,feh,turb,modtype)
-
-    if filename != 'FINALMODEL': os.system("mv FINALMODEL "+str(filename))
-
-    if clean_up: r = os.popen3('rm -f MOD* M1 M2')
-        
-    return True
-
-def run_create_atmo_model ():
-    """
-PURPOSE:
-   This interactively runs create_kurucz_atmo_model and prompts the user for the inputs
-   
-CATEGORY:
-   Stellar Atmospheres
-
-DEPENDENCIES:
-   External Modules Required
-   =================================================
-    os, numpy
-   
-   External Functions and Classes Required
-   =================================================
-    create_kurucz_atmo_model
-    
-NOTES:
-    
-EXAMPLE:
-   >>> run_create_atmo_model()
-
-MODIFICATION HISTORY:
-    13, Jun 2013: Dylan Gregersen
-
-    """    
-    def convert_modtype (modtype):
-        if modtype.lower()[0] == 'o': return 'ODFNEW'
-        if modtype.lower()[0] == 'a': return 'AODFNEW'
-    
-    inmodel = raw_input("Please give model parameters: teff  logg  feh  vmicro _OR_ model_filename\n")
-    inmodel = inmodel.split()
-
-    if len(inmodel) == 1:
-        mod_fname = get_filename("Please give MOOG model file",'r',inmodel[0])
-        if os.path.abspath(mod_fname) != os.path.abspath('./FINALMODEL'): os.system("cp "+mod_fname+" ./FINALMODEL")
-    else:
-        teff,logg,feh,vmicro =  np.array(inmodel[:4],dtype=float)
-        modtype = raw_input("Please give model type: "+", ".join(['KUROLD', 'ODFNEW', 'AODFNEW', 'NOVER'])+"\n")
-        modtype = convert_modtype(modtype)
-        while True:
-            check = create_kurucz_atmo_model(teff,logg,feh,vmicro,modtype,filename='FINALMODEL',verbose=True)
-            if not check:
-                inmodel = raw_input("Please retry model params: teff logg feh vmicro model_type:")
-                try:
-                    teff,logg,feh,vmicro =  np.array(inmodel[:4],dtype=float)
-                    modtype = convert_modtype(inmodel[4])
-                except: pass
-            else: break
-
-def moog_synth (lines_in, model_in, wlrange='default',synlimits_step_size=0.02, synlimits_opacity_radius=1.0, clean_up = True, verbose=True, **moogpars):
+def synth (lines_in, model_in, wlrange='default',synlimits_step_size=0.02, synlimits_opacity_radius=1.0, clean_up = True, verbose=True, **moogpars):
     """
 PURPOSE:
    This creates a synthesis model of a spectrum using MOOG 
@@ -341,7 +176,7 @@ MODIFICATION HISTORY:
 
     #================================================================================#
     # use MOOG to create synthesis
-    MOOG = subprocess.call([MOOGEXE], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    _MOOG = subprocess.call([MOOGEXE], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     #downstream = MOOG.communicate(input="batch.par\n")
     if verbose:
         print "-"*60
@@ -357,128 +192,7 @@ MODIFICATION HISTORY:
 
     return results
 
-def run_moog_ewfind ():
-    """
-PURPOSE:
-    This prompts the user for inputs to autoEWfind then runs the program
-   
-CATEGORY:
-   MOOG    
-
-DEPENDENCIES:
-   External Modules Required
-   =================================================
-    os, numpy
-   
-   External Functions and Classes Required
-   =================================================
-    get_filename, run_create_atmo_model
-    get_bounds, moog_ewfind
-    
-NOTES:
-    
-EXAMPLE:
-   >>> run_moog_ewfind()
-
-MODIFICATION HISTORY:
-    13, Jun 2013: Dylan Gregersen
-
-    """
-    assert is_moog07_avail, _moog07_avail_error
-    # get the input filename
-    inputf = get_filename("Please give input linelist file:",'r')
-    linelist = np.loadtxt(inputf,usecols=[0,1,2,3])
-
-    run_create_atmo_model() # ==> FINALMODEL
-
-    ewb = get_bounds("Give EW bounds: ",True,default=None,
-                     display_help='Seporate values by spaces. If one value given it will use it as a lower bound, two values become upper and lower, no values then the entire range will be used\n  EXAMPLE===> for EWs between 10 and 200 mA ;; Give EW bounds: 10 200')
-
-
-    wlb = get_bounds("Give wavelength bounds: ",False,None,
-                     display_help="Seporate values by spaces. Give two values lower_bound and upper_bound or no values to use the default range taken from the input linelist.\n EXAMPLE====> for wavelengths between 3600 7000 ;; Give wavelength bounds:  3600  7000")
-
-        
-    # get output filename
-    output_file = get_filename("Please give output file name:",'w')
-
-    log_file = get_filename("Please optional give a logfile, for no file press enter:",'w',default=False)
-    if log_file == False: log_file = None
-
-    print " "
-    print "- "*60
-    print " "
-    moog_ewfind('FINALMODEL',linelist,output_file,verbose=True,ewbounds=ewb,wlbounds=wlb,logfile=log_file,linelist_filename=inputf)
-        
-def moog_ewfind_model (lines_in,model,modtype='ODFNEW',fname_out='default'):
-    """
-PURPOSE:
-   Take a model input and linelist and create a ewfind output
-   
-CATEGORY:
-   MOOG
-
-INPUT ARGUMENTS:
-    lines_in : (string or array) Gives the file name for a line list to be read in from the file must be MOOG readable (see WRITEMOOG.ps)
-                if array then give the data to create a line list from (wl, spe, ep, loggf) as the columns
-    model : (array) Gives the atmosphere model  [teff,logg,feh,turb]
-    
-INPUT KEYWORD ARGUMENTS:
-    modtype : (string) the type of model to use, Possible Choices ->
-        ODFNEW -> 
-        AODFNEW -> Same as the ODFNEW only with an alpha enhancement
-        NOVER ->
-        KUROLD ->
-
-    fname_out : (string) Gives the output filename, 'default' ==> 'llist_{teff}p{logg}pm{feh}p{vt}.txt'
-    wlrange  : (array-like) Gives (lower_bound,upper_bound) anything else and it will default to the lines_in wavelength range
-    clean_up : (bool) If True it will delete temporary files 
-    verbose  : (bool) will give printed progress outputs
-    
-    **moogpars  Keywords to be included in the batch.par file with will be given to MOOG. See the function write_moog_par
-
-OUTPUTS:
-   (dictionary) MOOG output files
-       "summary_out" -> gives the summary output file which was created
-       "standard_out" -> gives the standard output file which was created
-
-DEPENDENCIES:
-   External Modules Required
-   =================================================
-    None
-   
-   External Functions and Classes Required
-   =================================================
-    moog07_exe, get_model_name, create_kurucz_atmo_model
-       
-NOTES:
-    (1) This runs moog_ewfind and returns that output
-
-EXAMPLE:
-   >>> models = [[5000,4.1,-2.13,1.1],[4700,3.9, -1.75, 1.2]]
-   >>> lines_in = 'my_linelist_file.txt"
-   >>> for model in models:
-   >>>      moog_ewfind_model(lines_in, model, modtype='ODFNEW', fname_out='default')
-   >>>
-
-MODIFICATION HISTORY:
-    13, Jun 2013: Dylan Gregersen
-        
-    """
-    assert is_moog07_avail, _moog07_avail_error
-    teff,logg,feh,turb = model
-
-    check = create_kurucz_atmo_model(teff,logg,feh,turb,verbose=False)
-    if not check: return False
-    
-    if outfile == 'default':
-        modfile = get_model_name(teff,logg,feh,turb)
-        outfile = 'llist_'+modfile+'.txt'
-
-    check = moog_ewfind(lines_in, 'FINALMODEL',fname_out,verbose=False)
-    return check
-
-def moog_ewfind (lines_in, model_in, fname_out=None, lines_formatted=True, lines_defaults={}, verbose=False, wlbounds=None, ewbounds=None, clean_up=True, logfile=None):
+def ewfind (lines_in, model_in, fname_out=None, lines_formatted=True, lines_defaults={}, verbose=False, wlbounds=None, ewbounds=None, clean_up=True, logfile=None):
     """
 PURPOSE:
    Run MOOG ewfind on a linelist and get equivalent width estimates
@@ -512,7 +226,7 @@ DEPENDENCIES:
    
    External Functions and Classes Required
    =================================================
-    moog07_exe, read_moog_linelist, CORE_moog_ewfind,
+    moog07_exe, read_moog_linelist, _CORE_moog_ewfind,
     join_threads 
     
 NOTES:
@@ -536,11 +250,10 @@ MODIFICATION HISTORY:
     # check type of input
     
     # get the lines from the line list
-    moogin = write_moog_lines_in("MOOG_INPUT_LINELIST")
     # if you receive a file then try using read_moog_linelist on it
     if type(lines_in) in (str,np.string_,np.str_,np.str): 
         linelist_filename = lines_in       
-        linelist = read_moog_linelist(lines_in, formatted=formatted, defaults=defaults, convert_gf=False)
+        linelist = read_moog_linelist(lines_in, formatted=lines_formatted, defaults=lines_defaults, convert_gf=False)
         
         wls = linelist['wl']
         llist = []
@@ -570,7 +283,7 @@ MODIFICATION HISTORY:
     linelist = linelist[mask]
 
     # run the routine for the file
-    t = CORE_moog_ewfind(linelist, model_in, moog_parfile='batch.par',timeout=2, verbose= verbose,logfile=logfile, linelist_filename=linelist_filename)
+    t = _CORE_moog_ewfind(linelist, model_in, moog_parfile='batch.par',timeout=2, verbose= verbose,logfile=logfile, linelist_filename=linelist_filename)
     t.go()
 
     crashed = False
@@ -583,17 +296,21 @@ MODIFICATION HISTORY:
 
     if t.logfile is not None:
         print >> t.logfile,"- "*30
-        print >> t.logfile,"OUTPUT FILE = "+output_file
+        print >> t.logfile,"OUTPUT FILE = "+fname_out
             
     t.stop()  
     
     if clean_up: t.clean_up()
     if crashed: return 0
     
-    if output_file is not None: return t.create_linelist(output_file,clobber=True, ewbounds=ewbounds)
+    if fname_out is not None: return t.create_linelist(fname_out,clobber=True, ewbounds=ewbounds)
     else: return t.get_output_data(ewbounds=ewbounds)
 
-class CORE_moog_ewfind(object):
+pass
+#=============================================================================#
+# ewfind tools
+
+class _CORE_moog_ewfind(object):
     nan_ew = -1
     
     moog_linein = 'MOOGLINELIST.txt'
@@ -644,7 +361,6 @@ class CORE_moog_ewfind(object):
         self.termination = False
         self.quit = False
 
-
     def __len__ (self):
         return len(self.output_data)
 
@@ -677,15 +393,16 @@ class CORE_moog_ewfind(object):
             write_moog_lines_in(self.moog_linein,oneline=self.linelist[i])
 
             # create the batch.par
-            write_moog_ewfind_par(self.moog_parfile,
-                                  lines_in=self.moog_linein,
-                                  mod_in=self.moog_model)
+            moogpars = {'lines_in':self.moog_linein,
+                       'model_in':self.moog_model}
+            
+            write_moog_par('ewfind',filename=self.moog_parfile,**moogpars)
             
             # make a call to MOOG
             perdone = str(round( (((float(i)+1.0) /float(N))*100.0), 1))
-            lo =  perdone+"% WORKING ON LINE "+str(i)+" : "+str(wl)+" "+str(spe)+" "+str(ep)+" "+str(loggf)
+            lo =  perdone+"% WORKING ON LINE "+str(i)+" : "+str(tuple(self.linelist[i]))
 
-            if self.verbose:    print lo
+            if self.verbose: print lo
             if self.logfile is not None: print >> self.logfile, lo
 
             #pdb.set_trace()
@@ -754,7 +471,7 @@ class CORE_moog_ewfind(object):
             if ewb[0] == ewb[1]: ewb[1] = 1e30
         
         for arr in self.output_data:
-            vals = arr[:-1]
+            _vals = arr[:-1]
             ew = arr[-1]
             if (ewbounds is not None) and (not (ewb[0] < ew < ewb[1])): continue
             data.append(arr)
@@ -789,3 +506,128 @@ def join_threads(threads):
     for t in threads:
         while t.isAlive():
             t.join(5)
+
+def ewfind_model (lines_in,model,modtype='ODFNEW',fname_out='default'):
+    """
+PURPOSE:
+   Take a model input and linelist and create a ewfind output
+   
+CATEGORY:
+   MOOG
+
+INPUT ARGUMENTS:
+    lines_in : (string or array) Gives the file name for a line list to be read in from the file must be MOOG readable (see WRITEMOOG.ps)
+                if array then give the data to create a line list from (wl, spe, ep, loggf) as the columns
+    model : (array) Gives the atmosphere model  [teff,logg,feh,turb]
+    
+INPUT KEYWORD ARGUMENTS:
+    modtype : (string) the type of model to use, Possible Choices ->
+        ODFNEW -> 
+        AODFNEW -> Same as the ODFNEW only with an alpha enhancement
+        NOVER ->
+        KUROLD ->
+
+    fname_out : (string) Gives the output filename, 'default' ==> 'llist_{teff}p{logg}pm{feh}p{vt}.txt'
+    wlrange  : (array-like) Gives (lower_bound,upper_bound) anything else and it will default to the lines_in wavelength range
+    clean_up : (bool) If True it will delete temporary files 
+    verbose  : (bool) will give printed progress outputs
+    
+    **moogpars  Keywords to be included in the batch.par file with will be given to MOOG. See the function write_moog_par
+
+OUTPUTS:
+   (dictionary) MOOG output files
+       "summary_out" -> gives the summary output file which was created
+       "standard_out" -> gives the standard output file which was created
+
+DEPENDENCIES:
+   External Modules Required
+   =================================================
+    None
+   
+   External Functions and Classes Required
+   =================================================
+    moog07_exe, get_model_name, create_kurucz_atmo_model
+       
+NOTES:
+    (1) This runs moog_ewfind and returns that output
+
+EXAMPLE:
+   >>> models = [[5000,4.1,-2.13,1.1],[4700,3.9, -1.75, 1.2]]
+   >>> lines_in = 'my_linelist_file.txt"
+   >>> for model in models:
+   >>>      moog_ewfind_model(lines_in, model, modtype='ODFNEW', fname_out='default')
+   >>>
+
+MODIFICATION HISTORY:
+    13, Jun 2013: Dylan Gregersen
+        
+    """
+    assert is_moog07_avail, _moog07_avail_error
+    teff,logg,feh,turb = model
+
+    from kurucz_atmospheres import create_kurucz_atmo_model
+    check = create_kurucz_atmo_model(teff,logg,feh,turb,modtype=modtype,verbose=False)
+    if not check: return False
+    
+    if fname_out == 'default':
+        modfile = get_model_name(teff,logg,feh,turb)
+        fname_out = 'llist_'+modfile+'.txt'
+
+    check = ewfind(lines_in, 'FINALMODEL',fname_out,verbose=False)
+    return check
+
+def run_ewfind ():
+    """
+PURPOSE:
+    This prompts the user for inputs to autoEWfind then runs the program
+   
+CATEGORY:
+   MOOG    
+
+DEPENDENCIES:
+   External Modules Required
+   =================================================
+    os, numpy
+   
+   External Functions and Classes Required
+   =================================================
+    get_filename, run_create_atmo_model
+    get_bounds, moog_ewfind
+    
+NOTES:
+    
+EXAMPLE:
+   >>> run_moog_ewfind()
+
+MODIFICATION HISTORY:
+    13, Jun 2013: Dylan Gregersen
+
+    """
+    from kurucz_atmospheres import run_create_atmo_model
+    
+    assert is_moog07_avail, _moog07_avail_error
+    # get the input filename
+    inputf = get_filename("Please give input linelist file:",'r')
+    linelist = np.loadtxt(inputf,usecols=[0,1,2,3])
+
+    run_create_atmo_model() # ==> FINALMODEL
+
+    ewb = get_bounds("Give EW bounds: ",True,default=None,
+                     display_help='Seporate values by spaces. If one value given it will use it as a lower bound, two values become upper and lower, no values then the entire range will be used\n  EXAMPLE===> for EWs between 10 and 200 mA ;; Give EW bounds: 10 200')
+
+
+    wlb = get_bounds("Give wavelength bounds: ",False,None,
+                     display_help="Seporate values by spaces. Give two values lower_bound and upper_bound or no values to use the default range taken from the input linelist.\n EXAMPLE====> for wavelengths between 3600 7000 ;; Give wavelength bounds:  3600  7000")
+
+        
+    # get output filename
+    output_file = get_filename("Please give output file name:",'w')
+
+    log_file = get_filename("Please optional give a logfile, for no file press enter:",'w',default=False)
+    if log_file == False: log_file = None
+
+    print " "
+    print "- "*60
+    print " "
+    ewfind('FINALMODEL',linelist,output_file,verbose=True,ewbounds=ewb,wlbounds=wlb,logfile=log_file,linelist_filename=inputf)
+        
