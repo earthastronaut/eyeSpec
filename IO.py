@@ -1,17 +1,19 @@
+# Input and Output functions for SPECTRE
 ################################################################################
-# These are the basic input functions for reading fits and text files
+#
 #
 #
 #
 ################################################################################
 # import modules
 if __name__ != '__main__':
-    import eyeSpec
-    from eyeSpec.base_functions import var_2_inv_var, np_vstack_append
-    from eyeSpec.base_classes import query_fits_header, eyeSpec_spec
-    from eyeSpec.dependencies import np, os, time, deepcopy, pdb
-    from eyeSpec.dependencies import scipy, pyfits
-    verbose = eyeSpec.Params['verbose_level']
+    import pdb #@UnusedImport
+    from __init__ import Params
+    from base_functions import var_2_inv_var
+    from base_classes import query_fits_header, eyeSpec_spec
+    from dependencies import np, os, time, deepcopy, scipy, pyfits, pickle
+    verbose = Params['verbose_level']
+
     
 pass
 ################################################################################
@@ -23,7 +25,36 @@ pass
 # classes to store the coefficients and wavelength solution as well as to solve
 class WavelengthSolutionFunctions:
     """
-    A class with defined wavelenth solutions. These are functions which take points/pixels and converts them to wavelengths
+
+PURPOSE:
+    A class which holds the wavelength solutions
+   
+CATEGORY:
+    IO
+
+INPUT ARGUMENTS:
+    None
+
+INPUT KEYWORD ARGUMENTS:
+    None
+
+DEPENDENCIES:
+    External Modules Required
+    =================================================
+    numpy, scipy, 
+   
+    External Functions and Classes Required
+    =================================================
+    None
+       
+NOTES:
+    (1) 
+
+EXAMPLE:
+    >>>
+
+MODIFICATION HISTORY:
+    13, Jun 2013: Dylan Gregersen
     """
 
     def __init__ (self):
@@ -88,6 +119,7 @@ class WavelengthSolutionFunctions:
         no_solution = False
         try: pts = np.array(pts)
         except: no_solution = True
+        
         try: coeff = np.array(coeff)
         except: no_solution = True
         
@@ -101,7 +133,7 @@ class WavelengthSolutionFunctions:
                 coeff = np.concatenate((coeff,np.zeros(8-len(coeff))))
                 
             # check the first order coefficient, if zero there is no solution
-                if coeff[1] == 0: coeff_type = 'no solution'
+                if coeff[1] == 0: no_solution=True
 
         return pts,coeff,no_solution
 
@@ -207,9 +239,6 @@ class WavelengthSolutionCoefficients:
     def set_equation_type (self,equ_type):
         self.equ_type = wlsolvefxn.get_func_name(equ_type)
     
-    def get_coeffsicients (self, ordi, reverse=False):
-        output = deepcopy(self.coeffs)
-        
     def get_extra_info (self):
         return deepcopy(self.extra)
 
@@ -315,14 +344,14 @@ def coeff_from_crvl (pyfits_header):
         
     return wlcoeff
 
-def coeff_from_wcs (pyfits_header, apply_rv=False):
+def coeff_from_wcs (pyfits_header, apply_WCS_rv=False):
     _check_header_type(pyfits_header)
     wlcoeff = WSC()
 
     #==========================================================================#
     wat0_001 = query_fits_header(pyfits_header,'WAT0_001')
     wat1_001 = query_fits_header(pyfits_header,'WAT1_001') 
-    wat2_001 = query_fits_header(pyfits_header,'WAT2_001') 
+    # wat2_001 = query_fits_header(pyfits_header,'WAT2_001') 
     wat3_001 = query_fits_header(pyfits_header,'WAT3_001') 
 
     if not wat0_001.found: return wlcoeff
@@ -480,7 +509,7 @@ def coeff_from_wcs (pyfits_header, apply_rv=False):
                     for i in range(len(sep_spec_val)):
                         print i,">>",sep_spec_val[i]
                     skip = raw_input("")
-                    if skip == 'a': stop,here=0
+                    if skip == 'a': pdb.set_trace()
 
                 order_coeff[int(sep_spec2[0])] = np.array(sep_spec_val,dtype=float)
         return order_coeff, wat_str
@@ -554,7 +583,7 @@ def coeff_from_wcs (pyfits_header, apply_rv=False):
         
                 equ_type = 'chebyshev poly'
                 poly_order = order_coeff[ordi][12]
-                xxmin,xxmax = order_coeff[ordi][13:15]
+                xxmin, _ = order_coeff[ordi][13:15]
                 coeff = order_coeff[ordi][15:15+poly_order] # I think
         
                 #coeff[5] = ltv.val # from SPECTRE == c(6)
@@ -835,13 +864,11 @@ def resolve_wlsoln_coeffs (wlcoeffs,preferred=None):
                  'linear',
                  'no solution']
     
-    found_soln = False
-    
     if preferred is not None: 
         if preferred not in res_order: raise ValueError("Given preference for wavelength solution is not in : "+", ".join(res_order))
         elif preferred not in wlcoeffs: 
             print "HeadsUp: Preferred dispersion not in options contining through list: " +", ".join(res_order)
-        else: return wlcoeff[preferred]
+        else: return wlcoeffs[preferred]
     
     
     for coeff_type in res_order:
@@ -856,146 +883,189 @@ def resolve_wlsoln_coeffs (wlcoeffs,preferred=None):
 pass
 #################################################################################
 # these functions are specific versions for reading in text files
+#
 
-def readin_multi_order_txt (filename,comment='#',skiprows=0,delimiter=None,progressive_pixel = True):
+#def readin_multi_order_txt (filename,comment='#',skiprows=0,delimiter=None,progressive_pixel = True):
+#    
+#    comment = str(comment)
+#    skiprows = int(skiprows)
+#    delimiter = str(delimiter)
+#    
+#    f = open(filename)
+#    lines = f.readlines()
+#    f.close()
+#    
+#    eSmo = False # eyeSpec multiple order text file
+#    txt_data = {}
+#    which_order = 0
+#    pixel_val = 1
+#    
+#    print_once = [True,True]
+#    
+#    for i in range(len(lines)):
+#        line = lines[i].rstrip()
+#        # check to see if its a multiple order file
+#        if i == 0 and line.find('eSorders') != -1:
+#            eSmo = True
+#            continue
+#        
+#        # skip number of rows 
+#        if i < skiprows: continue 
+#        
+#        # ignore comments
+#        ci = line.find(comment)
+#        if ci > -1:
+#            oi = line.find("order")
+#            if eSmo and oi != -1:
+#                sline = line.split()
+#                which_order = int(sline[2]) 
+#            elif oi == 0: continue
+#            else: 
+#                line = line[:ci]
+#                while ci > -1:
+#                    ci = line.find(comment)
+#                    line = line[:ci]
+#                        
+#        # now should just be data
+#        sline = line.split(delimiter)
+#        var = 1e30
+#        if len(sline) == 0: continue
+#        elif len(sline) == 1:
+#            if print_once[0]:
+#                print "only found one data column assuming wl is index"
+#                print_once[0] = False
+#            if progressive_pixel:
+#                pixel_val += 1
+#            else:   
+#                if which_order not in txt_data:
+#                    pixel_val = 1
+#                else: 
+#                    pixel_val = len(txt_data[which_order])
+#        
+#            wl = float(pixel_val)
+#            data = float(sline[0])
+#        elif len(sline) == 2:
+#            wl = float(sline[0])
+#            data = float(sline[1])
+#            
+#        elif len(sline) >= 3:
+#            if len(sline) != 3 and print_once[1]:
+#                print "number of columns is greater than 3, only using the first three for wavelength,data,varience"
+#                print_once[1] = False
+#            wl = float(sline[0])
+#            data = float(sline[1])
+#            var = float(sline[2])
+#            
+#        inv_var = var_2_inv_var([var])[0]
+#        if which_order in txt_data:
+#            txt_data[which_order].append([wl,data,inv_var])
+#        else:
+#            txt_data[which_order] = [[wl,data,inv_var]]
+#        
+#        
+#    all_orders = np.array(txt_data.keys()).sort()
+#    np_txt_data = []
+#    for order in all_orders:
+#        
+#        # !! need some way to deal with multiple order text files
+#        
+#        # check the input txt_data
+#        if txt_data.shape[0] == 1:
+#            print "HeadsUp: NO WAVELENGTH DATA FOUND, USING FIRST COLUMN AS DATA"
+#            txt_data = np.vstack((np.arange(1,len(txt_data)+1),txt_data))
+#        #elif txt_data.shape[0] == 2: perfect!
+#        elif txt_data.shape[0] > 2: 
+#            print "HeadsUp: MORE COLUMNS FOUND IN TEXT FILE THAN I KNOW WHAT TO DO WITH, TAKING THE 1ST TO BE WAVELENGTH AND 2ND TO BE DATA"
+#            txt_data = txt_data[:2]
+#            # !! I have a previous note about this but I could take a third column to be inverse varience, or varience
+#            # !! could create a system which has three columns (wavelenght,data,inv_varience)
+#
+#        # create new header
+#        new_header = pyfits.PrimaryHDU()
+#        hdulist = pyfits.HDUList([new_header])
+#        prihdr = hdulist[0].header
+#
+#        # add/adjust fits header
+#        prihdr['NAXIS'] = 1 # !! should I have a way to recognize multi order text files?
+#        prihdr.update('FILENAME',os.path.basename(filename))# !!,comment=' ')
+#
+#        wl = np.array([[txt_data[0]]])
+#        data = np.array([[txt_data[1]]])
+#        # inv_var = np.array([[txt_data[2]]])
+#
+#        spec_obj = eyeSpec_spec(wl,data,header=prihdr)#!!,inverse_varience = inv_var)
+#        spec_obj.filename = os.path.abspath(filename)
+#
+#        # set up private information
+#        spec_obj._private_info['filename'] = filename
+#
+#        pts = np.arange(len(data[0][0]))+1. 
+#        
+#        # find  wavelength solution
+#        # !! I should have something here for when their's just a single column which is data, i.e. no wavelength solution
+#        if preferred_disp == 'linear':
+#            poly_order = 1
+#            disp_type = 'linear'
+#        elif preferred_disp == 'any' or preferred_disp in ['poly','ordinary poly']:
+#            poly_order = 6
+#            disp_type = 'poly'
+#          
+#        else:
+#            print "WARNING: CURRENTLY CAN ONLY APPLY LINEAR AND POLYNOMIAL FITS TO TEXT DATA, USING POLYNOMIAL"
+#            # !! when I create a fancy get_disp for a wl array then I can put that in here
+#            poly_order = 6
+#            disp_type = 'poly'
+#
+#        disp = scipy.polyfit(pts,wl[0][0],poly_order)
+#        disp = np.flipud(disp) # switch the order which the dispersion is given [0] = zero-ith order
+#        disp = np.concatenate((disp,np.array([0.0]))) # array length = 8
+#
+#        spec_obj._private_info[(0,0)]['disp']=[disp,disp_type]
+#        spec_obj._private_info[(0,0)]['rv'] = [0]
+
+def readin_txt (filename, get_data=False,**np_kwargs):
+    """
+PURPOSE:
+    Readin text files with wavelength and data columns (optionally inverse varience)
+   
+CATEGORY:
+    Documentation
+
+INPUT ARGUMENTS:
+    ARG : (type) Description
+
+INPUT KEYWORD ARGUMENTS:
+    KWARG : (type) Description
+
+OUTPUTS:
+    OUT : (type) Description
+
+METHODS:
+    meth : Description
+       
+DEPENDENCIES:
+    External Modules Required
+    =================================================
+   
+   
+    External Functions and Classes Required
+    =================================================
+       
+       
+NOTES:
+    (1) This is part of the readin function and does not need to be called seporately
+
+EXAMPLE:
+    >>>
+
+MODIFICATION HISTORY:
+    5, July 2013: Dylan Gregersen  
     
-    comment = str(comment)
-    skiprows = int(skiprows)
-    delimiter = str(delimiter)
+    """  
+    # Allows for not repeating a loadtxt
+    if 'txt_data' in np_kwargs: txt_data = np_kwargs['txt_data']
+    else: txt_data = None
     
-    f = open(filename)
-    lines = f.readlines()
-    f.close()
-    
-    eSmo = False # eyeSpec multiple order text file
-    txt_data = {}
-    which_order = 0
-    pixel_val = 1
-    
-    print_once = [True,True]
-    
-    for i in range(len(lines)):
-        line = lines[i].rstrip()
-        # check to see if its a multiple order file
-        if i == 0 and line.find('eSorders') != -1:
-            eSmo = True
-            continue
-        
-        # skip number of rows 
-        if i < skiprows: continue 
-        
-        # ignore comments
-        ci = line.find(comment)
-        if ci > -1:
-            oi = line.find("order")
-            if eSmo and oi != -1:
-                sline = line.split()
-                which_order = int(sline[2]) 
-            elif oi == 0: continue
-            else: 
-                line = line[:ci]
-                while ci > -1:
-                    ci = line.find(comment)
-                    line = line[:ci]
-                        
-        # now should just be data
-        sline = line.split(delimiter)
-        var = 1e30
-        if len(sline) == 0: continue
-        elif len(sline) == 1:
-            if print_once[0]:
-                print "only found one data column assuming wl is index"
-                print_once[0] = False
-            if progressive_pixel:
-                pixel_val += 1
-            else:   
-                if which_order not in txt_data:
-                    pixel_val = 1
-                else: 
-                    pixel_val = len(txt_data[which_order])
-        
-            wl = float(pixel_val)
-            data = float(sline[0])
-        elif len(sline) == 2:
-            wl = float(sline[0])
-            data = float(sline[1])
-            
-        elif len(sline) >= 3:
-            if len(sline) != 3 and print_once[1]:
-                print "number of columns is greater than 3, only using the first three for wavelength,data,varience"
-                print_once[1] = False
-            wl = float(sline[0])
-            data = float(sline[1])
-            var = float(sline[2])
-            
-        inv_var = var_2_inv_var([var])[0]
-        if which_order in txt_data:
-            txt_data[which_order].append([wl,data,inv_var])
-        else:
-            txt_data[which_order] = [[wl,data,inv_var]]
-        
-        
-    all_orders = np.array(txt_data.keys()).sort()
-    np_txt_data = []
-    for ori in all_orders:
-        
-        # !! need some way to deal with multiple order text files
-        
-        # check the input txt_data
-        if txt_data.shape[0] == 1:
-            print "HeadsUp: NO WAVELENGTH DATA FOUND, USING FIRST COLUMN AS DATA"
-            txt_data = np.vstack((np.arange(1,len(txt_data)+1),txt_data))
-        #elif txt_data.shape[0] == 2: perfect!
-        elif txt_data.shape[0] > 2: 
-            print "HeadsUp: MORE COLUMNS FOUND IN TEXT FILE THAN I KNOW WHAT TO DO WITH, TAKING THE 1ST TO BE WAVELENGTH AND 2ND TO BE DATA"
-            txt_data = txt_data[:2]
-            # !! I have a previous note about this but I could take a third column to be inverse varience, or varience
-            # !! could create a system which has three columns (wavelenght,data,inv_varience)
-
-        # create new header
-        new_header = pyfits.PrimaryHDU()
-        hdulist = pyfits.HDUList([new_header])
-        prihdr = hdulist[0].header
-
-        # add/adjust fits header
-        prihdr['NAXIS'] = 1 # !! should I have a way to recognize multi order text files?
-        prihdr.update('FILENAME',os.path.basename(filename))# !!,comment=' ')
-
-        wl = np.array([[txt_data[0]]])
-        data = np.array([[txt_data[1]]])
-        # inv_var = np.array([[txt_data[2]]])
-
-        spec_obj = eyeSpec_spec(wl,data,header=prihdr)#!!,inverse_varience = inv_var)
-        spec_obj.filename = os.path.abspath(filename)
-
-        # set up private information
-        spec_obj._private_info['filename'] = filename
-
-        pts = np.arange(len(data[0][0]))+1. 
-        
-        # find  wavelength solution
-        # !! I should have something here for when their's just a single column which is data, i.e. no wavelength solution
-        if preferred_disp == 'linear':
-            poly_order = 1
-            disp_type = 'linear'
-        elif preferred_disp == 'any' or preferred_disp in ['poly','ordinary poly']:
-            poly_order = 6
-            disp_type = 'poly'
-          
-        else:
-            print "WARNING: CURRENTLY CAN ONLY APPLY LINEAR AND POLYNOMIAL FITS TO TEXT DATA, USING POLYNOMIAL"
-            # !! when I create a fancy get_disp for a wl array then I can put that in here
-            poly_order = 6
-            disp_type = 'poly'
-
-        disp = scipy.polyfit(pts,wl[0][0],poly_order)
-        disp = np.flipud(disp) # switch the order which the dispersion is given [0] = zero-ith order
-        disp = np.concatenate((disp,np.array([0.0]))) # array length = 8
-
-        spec_obj._private_info[(0,0)]['disp']=[disp,disp_type]
-        spec_obj._private_info[(0,0)]['rv'] = [0]
-
-def readin_txt (filename,txt_data=None,get_data=False,**np_kwargs):
     if txt_data is None:
         if 'unpack' in np_kwargs: del np_kwargs['unpack']
         if 'dtype' in np_kwargs: del np_kwargs['dtype']
@@ -1074,7 +1144,6 @@ def readin_txt (filename,txt_data=None,get_data=False,**np_kwargs):
 ############################################################################
 # readin is the main function for input
 
-
 pass
 #################################################################################
 # This is the general read in function for fits and text files
@@ -1083,50 +1152,78 @@ def readin (filename, hdu=0,  non_std_fits=False,
             text_comments='#', text_skiprows=0, get_data=False, verbose=False,
             apply_WCS_rv=False):
     """
-    Read data from a fits or text file and compute the wavelength
-    
-    INPUTS:
-    ==============   ===========================================================
-    Keyword          (type) Description
-    ==============   ===========================================================    
-    filename         (string) Location relative to current working directory
-                       file must be fits or a txt file of wl,data pairs (can 
-                       also include a column for inverse varience)
-    hdu              (int) Which header to use to get the data from
-    text_comments    (string) Information to the right of this symbol will be ignored
-    text_skiprows    (int) Number of rows to skip in text document
-    get_data         (bool) If True then return tuple of (wl,data,inv_var) else return eyeSpec_spec
-    apply_WCS_rv   (bool) If True and if the wavelength solution is stored in 
+
+PURPOSE:
+    Multipurpose read in function for fits and text files
+   
+CATEGORY:
+    IO
+
+INPUT ARGUMENTS:
+    filename : (string) Location relative to current working directory file must be fits or 
+                        a txt file of wl,data pairs (can also include a column for inverse varience)
+
+INPUT KEYWORD ARGUMENTS:    
+    hdu           : (int) Which header to use to get the data from
+    text_comments : (string) Information to the right of this symbol will be ignored
+    text_skiprows : (int) Number of rows to skip in text document
+    get_data      : (bool) If True then return tuple of (wl,data,inv_var) else return eyeSpec_spec
+    apply_WCS_rv  : (bool) If True and if the wavelength solution is stored in 
                        IRAF WCS format with a non-zero radial velocity then it is
                        applied to the data
-                      
-    ==============   ===========================================================
+
+OUTPUTS:
+    if get_data: (Tuple) Three numpy arrays of wavelength, data, and inverse_varience
+    else: (eyeSpec_spec) eyeSpec spectrum class
+       
+DEPENDENCIES:
+    External Modules Required
+    =================================================
+    numpy, os, pyfits
+   
+    External Functions and Classes Required
+    =================================================
+    check_for_txt_format, eyeSpec_spec, readin_txt, query_fits_header, wlsoln_coeff_from_header
     
+       
+NOTES:
+    (1) 
+
+EXAMPLE:
+    >>> spec = readin("myfits.fits")
     
+    >>> spec = readin("mytext.txt")
+    
+    >>> wl,data,inv_var = readin("myfits.fits",get_data=True)
+    
+
+MODIFICATION HISTORY:
+    5, July 2013: Dylan Gregersen
     
     """
-    multi_order_txt = False
-    use_naxis2='all'
-    use_naxis3='all'
+    # Variables to be included in future 
+    # todo: be able to create subsets
+    # multi_order_txt = False
+    # use_naxis2='all'
+    # use_naxis3='all'
     
-    
-    preferred_wlsoln=None # !! need to fix this
+    preferred_wlsoln=None 
     # !! should also be able to input wavelength solution?
     
     if preferred_wlsoln is not None: preferred_wlsoln = wlsolvefxn.get_func_name(preferred_wlsoln)
     
     #### check if file exists   ####### #############
-    if not os.path.exists(filename): raise IOError("File does not exist:'"+filename+"'")
-
+    if not os.path.isfile(filename): raise IOError("File does not exist:'"+filename+"'")
 
     #### check if file is text#############  
     np_kwargs = {'comments':text_comments,
                  'skiprows':text_skiprows}
+    
     is_text_file, txt_data = check_for_txt_format(filename,**np_kwargs)
 
     #### if it is a text file ######################
     if is_text_file:
-        spec_obj = readin_txt(filename,txt_data,get_data)        
+        spec_obj = readin_txt(filename,txt_data=txt_data,get_data=get_data)        
         return spec_obj      
 
     #### now check how it behaves as a fits file
@@ -1136,10 +1233,8 @@ def readin (filename, hdu=0,  non_std_fits=False,
         try: hdulist = pyfits.open(filename)
         except: raise IOError("PYFITS DOES NOT LIKE THE FILE YOU GAVE ('"+filename+"'), TO SEE WHAT ERROR IT GIVES TRY: hdulist = pyfits.open('"+filename+"')")
 
-
     #### open up fits file ##############################
-    hdulist = pyfits.open(filename)
-
+    
     # select which header unit ot use
     if len(hdulist) > 1: 
         hdu = int(hdu)
@@ -1163,13 +1258,13 @@ def readin (filename, hdu=0,  non_std_fits=False,
     simple = query_fits_header(prihdr,'SIMPLE',noval=False)
     xtension = query_fits_header(prihdr,'XTENSION')
     if simple.found:
-         if not simple.val: print "HeadsUp: Header Keyword SIMPLE is False, you may encounter unexpected behavior"
+        if not simple.val: print "HeadsUp: Header Keyword SIMPLE is False, you may encounter unexpected behavior"
     else:
         if not xtension.found: print "HeadsUp: No extension keyword found in headers, you may encounter unexpected behavior"
             
             
     #### read in important information from header, if present
-    ibits = query_fits_header(prihdr,'BITPIX') # how many bits per pixel in the data? Not currently necessary, numpy will adapt
+    ibits = query_fits_header(prihdr,'BITPIX') # how many bits per pixel in the data? Not currently necessary, numpy will adapt #@UnusedVariable
     
     naxis  = query_fits_header(prihdr,'NAXIS' ,noval=0) # how many dimenstions?
     naxis1 = query_fits_header(prihdr,'NAXIS1',noval=0) # number of points per order
@@ -1181,8 +1276,8 @@ def readin (filename, hdu=0,  non_std_fits=False,
 
     if not naxis.found: raise IOError("ERROR: Keyword NAXIS not found")
 
-    bzero = query_fits_header(prihdr,"BZERO",noval=0)
-    bscale = query_fits_header(prihdr,"BSCALE",noval=1)
+    # bzero = query_fits_header(prihdr,"BZERO",noval=0)
+    # bscale = query_fits_header(prihdr,"BSCALE",noval=1)
 
     ###### read in data ##############################################
     data = header_unit.data
@@ -1221,7 +1316,7 @@ def readin (filename, hdu=0,  non_std_fits=False,
     wlcoeff = wlsoln_coeff_from_header(header_unit.header, apply_WCS_rv, preferred_wlsoln)
     
     # the same wavelength solution is applied to all bands so just pick the first and broadcast
-    band = 0
+    band = 0 #@UnusedVariable
     priv_info = {}
     
     # go through all the orders
@@ -1291,7 +1386,7 @@ def readin (filename, hdu=0,  non_std_fits=False,
     #    for i in range(len(nspec)): spec_obj._bands[nspec[i]] = i
     #    for i in range(len(nord)): spec_obj._orders[nord[i]] = i
     # 
-        
+    
     if 7 in nband: spec_obj.set_band(6) # this is where Magellian data stores it's object data, i.e. BANDID7 which is index 6
 
     if len(hdulist) > 1: spec_obj.hdrlist = [h.header for h in hdulist]
@@ -1299,11 +1394,655 @@ def readin (filename, hdu=0,  non_std_fits=False,
     return spec_obj
     
 
-
 pass
 #################################################################################
 # extended IO functions
 
+def save (spec_obj,filename=None,unique_name=True,clobber=False):
+    fsuffix = '.spec' #'.pkl'
+    
+    """ 
+    this is used to save a pickled version of the current object
+    
+    INPUTS:
+    ============  ==============================================================
+    keyword       (type) Description
+    ============  ==============================================================
+    spec_obj      (eyeSpec_spec) A eyeSpec spectrum object
+    filename      (str) If '.spec' is not added to the end this string will 
+                     be used as a prefix for the full filename. 
+                     filename = 'foo'  ===> 'foo.spec'
+                     Otherwise the filename will be used.
+                     If None then the filename will be generic "SpecObjSave"
+    unique_name   (bool) if True then it will make sure the file saves by 
+                     checking all file names and adding _# if multiples appear
+    clobber       (bool) if True it will delete existing files, if False it
+                     will raise an error if the file exists,
+                     Not applicable if unique_name is True 
+    ============  ==============================================================
+
+    """
+    # !! I could change this to be a special file
+    # Header: contains actual header, info, and notes strings
+    # DATA: contains wavelength, data, inv_var information
+
+    unique_name = bool(unique_name)
+    clobber = bool(clobber)
+
+    #--------------------------------------------#
+    if filename is None:
+        filename = 'SpecObjSave'
+        #if obj._obj_name is not None: filename += '_'+obj._obj_name
+    else: 
+        fileprefix = str(filename).strip(fsuffix)
+        fileprefix = str(fileprefix)
+        if type(fileprefix).__name__ in ['str','string_']: filename = fileprefix
+        else: raise TypeError("fileprefix must be of type string not "+type(fileprefix).__name__)
+      
+    filename += fsuffix
+  
+    #--------------------------------------------#
+    if unique_name:
+        # save only unique names by checking if the file already exists
+        i = 1
+        u_filename = deepcopy(filename)
+        while True:
+            if os.path.exists(u_filename):
+                u_filename = deepcopy(filename[:-4]+"_"+str(i)+filename[-4:])
+                i+=1
+            else: break
+    else:
+        if os.path.exists(filename) and not clobber: raise IOError("clobber is set to false and given file exists: "+filename)
+
+    #--------------------------------------------#
+    pickle.dump(spec_obj,open(filename,'wb'))
+
+save_spec = save # for capatibility
+
+def load (filename): 
+    """
+    Readin a specified eyeSpec class object from a spectrum file
+    """
+    try: out_spec_obj = pickle.load(open(filename,'rb'))
+    except: raise ValueError("Invalid pickle file : "+filename)
+
+    if out_spec_obj.__class__.__name__ not in ['eyeSpec_spec','eyeSpec_fits']: raise IOError("Loaded an object which is not of class eyeSpec_spec or eyeSpec_fits")
+    return out_spec_obj
+
+load_spec = load
+
+def save_txt (spec_obj,filename,band='default',use_cropped=False,order=None,clobber=True,include_varience=True,divide_orders=True,comment='#',divide_header=True):
+    """
+    Outputs the eyeSpec spectrum class into a given file as text data.
+
+    INPUTS:
+    =============   ============================================================
+    keyword         (type) Description
+    =============   ============================================================
+    spec_obj        (eyeSpec_spec) spectrum class for eyeSpec
+    filename        (str) This gives the filename to save the as
+    band            (int,'default') This tells which of the first dimensions of
+                      spec_obj to use. 'default' is spec_obj.get_band()
+    use_cropped     (bool) If True it will crop off points at the begining and 
+                      end of orders which have inverse varience = 0, i.e. have
+                      inf errors
+    order           (int,array,None) you can specify which orders are output
+                      If None then it will output all possible orders
+    clobber         (bool) If True then the function will overwrite files of the
+                      same file name that already exis
+
+    include_varience (bool) If True the third column which gives the varience 
+                      will be included
+    divide_orders    (bool) If True it will but a commend line with '#' between
+                      each of the orders
+    comment          (str) What symbol to use as a comment
+    divide_header    (bool,None) If False it will give one long string as the first header line
+                                 If True it will divide it up by 80 character lines with a comment of '#:' 
+                                 If None then no header will be printed
+    =============   ============================================================
+
+    """
+    #===============================================#
+    # check inputs
+    if spec_obj.__class__.__name__ != 'eyeSpec_spec': raise ValueError("spec MUST BE OF CLASS eyeSpec_spec")
+
+    # double check booleans
+    clobber = bool(clobber)
+    include_varience = bool(include_varience)
+    divide_orders = bool(divide_orders)
+    if divide_header is not None:
+        divide_header = bool(divide_header)
+
+    # if order is not None then convert and check
+    if order is not None:
+        try: order = np.array(order,dtype=int)
+        except: raise ValueError("Order must be convertable to an integer ndarray")
+        if order.ndim == 0: order = np.array([order])
+        elif order.ndim > 1: 
+            print "HeadsUp: Multiple dimensions give for order, taking only the first"
+            order = order[0]
+
+    # if band is not default check it and output
+    if band != 'default':
+        band = spec_obj._check_band_num(band=band)
+        spec_obj.set_band(band)
+
+    # check order_delimiter
+    if type(comment).__name__ not in ['str','string_']: raise ValueError("Please give comment delimiter as a string")
+    
+    # filename:
+    if type(filename).__name__ not in ['str','string_']: raise ValueError("Filename must be a string")
+
+    if os.path.exists(filename) and not clobber: raise IOError("Clobber set to False and file exists: '"+filename+"'")
+    
+
+    #===============================================#
+    # edit header to reflect current information 
+    # !! not exactly sure yet
+
+
+    #===============================================#
+    # open and write to file
+    f = open(filename,'w')
+
+
+    # !! add check for multiple headers
+
+    if divide_orders:
+        aline = comment+"eSorders - eyeSpec multiple order text format"
+        if divide_header: aline += "\n"
+        else: aline = format(aline,'80')
+        f.write(aline)
+
+    #--------------------------------#
+    # add header
+    if divide_header is not None:
+        header_line = ""
+        for card in spec_obj.header.ascardlist():
+            card = str(card).strip()
+            if divide_header:
+                f.write(comment+": "+card)
+                f.write("\n")
+            else: header_line += card
+            
+        if not divide_header:
+            f.write(comment+" ")
+            f.write(header_line.strip())
+            f.write("\n")
+
+    #--------------------------------#
+    # add all data
+    # walk through orders
+    if order is not None: ran = order
+    else: ran = range(spec_obj.shape[1])
+
+    use_cropped = bool(use_cropped)
+    spec_obj.set_use_cropped(use_cropped)
+    for i in ran:
+        # output information
+        wl = spec_obj.get_wl(i)
+        dat = spec_obj.get_data(i)
+        inv_var = spec_obj.get_inv_var(i)
+
+        if divide_orders and len(ran) > 1: 
+            f.write(" ".join([comment,"order",str(i),str(len(wl)),"\n"]))
+        # go through data points
+        for j in range(len(wl)):
+            out = [format(wl[j],'>15.10'),
+                   format(dat[j],'>15.10')]
+            if include_varience:
+                if abs(inv_var[j]) < 1e-30: var = 1e30
+                else: var = 1.0/inv_var[j]
+                out.append(format(var,'>10.10'))
+            out.append("\n")
+            f.write("  ".join(out))
+
+    spec_obj.set_use_cropped('previous')
+    #===============================================#
+    f.close()
+
+save_spec_txt = save_txt
+
+def save_txt_orders (spec_obj, base_name, band='default',use_cropped=False,clobber=True,include_varience=True,comment='#',divide_header=True):
+    """
+    Splits a eyeSpec spectrum object into orders with the file name set by the base name and the order number
+    e.g. base_name = 'my_spectrum'
+    order 0 = my_spectrum_0.txt
+    order 1 = my_spectrum_1.txt
+    order 2 = my_spectrum_2.txt
+    order 3 = my_spectrum_3.txt
+    ....and so on
+    
+
+    """
+    
+    orders = range(spec_obj.shape[1])
+    
+    for i in orders:
+        fname = str(base_name)+"_"+str(i)+".txt"
+        save_txt(spec_obj,fname,
+                      band=band,use_cropped=use_cropped,order=[i],
+                      clobber=clobber,include_varience=include_varience,comment=comment,divide_header=divide_header)
+
+def readin_single_order_files (filelist,relative_paths=False,verbose=True):
+    """
+    takes a list of spectre 1D files and creates a single object
+
+    INPUTS:
+    =============  =============================================================
+    keyword        (type) Description
+    =============  =============================================================
+    filelist       (string) give the name of a file which contains a list of 
+                           spectre files (fits/txt)
+                    OR
+                   (array) which gives each file name
+    relative_paths (bool) if True eyeSpec will look for each file name in the 
+                   filelist relative to the current directory. If False it will
+                   take the absolute path of the filelist file as the base name
+                   to look for each file. Not applicable if filelist is array
+    =============  =============================================================
+    """
+    list_of_files = []
+    relative_paths = bool(relative_paths) # !! I think I want to do this every time
+
+    #============================================================#
+    # import the files
+    #-----------------------------------------------#
+    # if given input is a string treat it like it's a file to import
+    if type(filelist).__name__ in ('str','string_'):
+        # check if file exists
+        if not os.path.exists(filelist): raise IOError("Input file not found: '"+filelist+"'")
+        dirpath = os.path.dirname(os.path.abspath(filelist))+"/"
+
+        f = open(filelist)
+        for fname in f:
+            fname = file.rstrip().split()
+            # fname = "\ ".join(fname)
+            fname = fname[0]
+            if not relative_paths:
+                bfname = os.path.basename(fname)
+                fname = dirpath+bfname
+
+            if not os.path.exists(fname): raise IOError("File doesn't exist: '"+fname+"'") # could skip
+            else: list_of_files.append(fname)
+
+        if len(list_of_files) == 0: raise IOError("No valid files found")
+        f.close()
+    #-----------------------------------------------#
+    # if given input is not a string assume it's a list/array
+    else:
+        relative_paths = False
+        # see if it's array like and can be used to iterate through
+        try: list_of_files = list(np.array(filelist,dtype=str))
+        except: 
+            raise IOError("Input must either be a string giving a file which contains lists of files or array like list of file names")
+
+
+    #============================================================#
+    # now with list_of_files import all the objects
+    all_objs = []
+    first_file = True
+    for fname in list_of_files:
+        # the code was doing something funny, this is the work around
+        if fname[0] == "'" and fname[-1] == "'": fname = fname.replace("'","")
+
+        if not os.path.exists(fname): raise IOError("not using file '"+fname+"' because it doesn't exist") # could skip this
+        # the real need for readin is to get the wavelength data
+        else:
+            new_obj = readin(fname)
+            if first_file:
+                first_file = False
+                shape = new_obj.shape
+
+            elif new_obj.shape != shape: raise IOError("the data from file '"+fname+"' is not consistent in dimension to the first file") # could skip
+            else: all_objs.append(new_obj) 
+        
+    # each of all_obj is shape  = (1,1,#pts)
+    # each is brand new
+    if len(all_objs) == 0: raise IOError("NO OBJECTS READ IN")
+
+
+    #============================================================#
+    # now organize the data
+    #------------------------------------------#
+    # set up a storage for information
+    all_wl   = [all_objs[0]._wl[0][0]] # shape (1,#pts)
+    all_data = [all_objs[0]._data[0][0]] # shape (1,#pts)
+
+    priv_info   = [deepcopy(all_objs[0].info(0))]
+    header_list = [deepcopy(all_objs[0].header)]
+    first_shape = deepcopy(all_objs[0].shape)
+
+    # walk through all the objects and store the useful information while also keeping track of sorting information and number of points 
+    sortit = [all_wl[0][0]] # first wavelength point of the array
+    max_pts = len(all_wl[0])
+
+    for i in range(1,len(all_objs)):
+        obj = all_objs[i]
+
+        sortit.append(obj._wl[0][0][0])
+
+        all_wl.append(obj._wl[0][0])
+        all_data.append(obj._data[0][0])
+
+        max_pts = max(max_pts,len(obj._wl[0]))
+
+        priv_info.append(deepcopy(obj.info(0)))
+        header_list.append(deepcopy(obj.header))
+
+
+    # sort by the first value of the wavelength array
+    sortit = np.array(sortit).argsort()
+
+    #------------------------------------------#
+    # initialize the arrays used for output
+    ord_num = 0
+    new_wl = [] 
+    new_data = []
+    new_priv_info = {}
+    new_hdr_list = []
+
+    #------------------------------------------#
+    # walk through the sorted index points
+    for j in sortit:
+        # check to make sure the length is ok
+        if len(all_wl[j]) < max_pts:
+            all_wl[j] = np.concatenate((all_wl[j],np.ones(max_pts - len(all_wl[j]))*-.5))
+            all_data[j] = np.concatenate((all_data[j],np.ones(max_pts - len(all_data[j]))*-.5))
+            if verbose: print "HeadsUp: File #"+str(j)+" has a fewer number of data points, it may not have a wavelength solution"
+            
+        if first_shape[2] != all_wl[j].shape[0]: raise IOError("NUMBER OF POINTS MUST BE THE SAME IN ORDER TO CONCATENATE THEM")
+
+        new_wl.append(all_wl[j])
+        new_data.append(all_data[j])
+
+        # define the private information
+        priv_info[j]['id'][1] = (0,ord_num)
+        new_priv_info[(0,ord_num)] = priv_info[j]
+        ord_num+=1
+        
+        new_hdr_list.append(header_list[j])
+
+    #============================================================#
+    # create output object
+
+    new_obj = eyeSpec_spec(np.array([new_wl],dtype=float),np.array([new_data],dtype=float),header = new_hdr_list[0])
+    new_obj._private_info = new_priv_info
+
+    new_obj.header.update('NAXIS',1)
+    new_obj.header.update('NAXIS1',len(new_wl[0]))
+    new_obj.header.update('NAXIS2',len(new_wl))
+
+    naxis3 = query_fits_header(new_obj.header,'naxis3')
+    if naxis3.found: del new_obj.header['naxis3']
+
+    # add this
+    new_obj.hdrlist = new_hdr_list
+
+    #============================================================#
+    # return new object
+    if verbose: print "COMBINED ",len(all_objs)," SINGLE ORDER FILES"
+    return new_obj
+
+readin_spectre_files = readin_single_order_files
+
+def readin_apogee (filename,use_row=1):
+    """ 
+    This takes the pipeline reduced fits from the APOGEE. This should contain several header units each with several image extensions.
+
+    INPUT:
+    filename : (fits) APOGEE pipeline reduced data with a 0 header unit similar to the below
+    use_order : (int) APOGEE refers to these as rows, default is row1 ("combined spectrum with individual pixel weighting")
+
+    OUTPUT:
+    data,tell = (eyeSpec_spec, eyeSpec_spec) returns a two element array the first being the data spectrum (HDU1) the seconde being the telluric spectrum (HDU6) the errors have been converted to inverse varience and incorporated into the spectrum class.
+
+
+    =================================================================
+    Example header 0 header unit:
+    
+    HISTORY APSTAR: The data are in separate extensions:                      
+    HISTORY APSTAR:  HDU0 = Header only                                       
+    HISTORY APSTAR:  All image extensions have:                               
+    HISTORY APSTAR:    row 1: combined spectrum with individual pixel weighti 
+    HISTORY APSTAR:    row 2: combined spectrum with global weighting         
+    HISTORY APSTAR:    row 3-nvisis+2: individual resampled visit spectra     
+    HISTORY APSTAR:   unless nvists=1, which only have a single row           
+    HISTORY APSTAR:  All spectra shifted to rest (vacuum) wavelength scale    
+    HISTORY APSTAR:  HDU1 - Flux (10^-17 ergs/s/cm^2/Ang)                     
+    HISTORY APSTAR:  HDU2 - Error (10^-17 ergs/s/cm^2/Ang)                    
+    HISTORY APSTAR:  HDU3 - Flag mask (bitwise OR combined)                   
+    HISTORY APSTAR:  HDU4 - Sky (10^-17 ergs/s/cm^2/Ang)                      
+    HISTORY APSTAR:  HDU5 - Sky Error (10^-17 ergs/s/cm^2/Ang)                
+    HISTORY APSTAR:  HDU6 - Telluric                                          
+    HISTORY APSTAR:  HDU7 - Telluric Error                                    
+    HISTORY APSTAR:  HDU8 - LSF coefficients                                 
+    HISTORY APSTAR:  HDU9 - RV and CCF structure
+
+    """
+    # this is related to the row1
+    # can also give it an oid form (band,order)
+    
+    # use_order = 0 
+    use_order = int(use_row-1)
+    hdu_header = 0  # the HDU with the header information
+    hdu_flux = 1    # the HDU with the flux data
+    hdu_err = 2     # the HDU with the error on the flux data
+    hdu_tell = 6    # the HDU with the telluric data
+    hdu_tell_er = 7 # the HDU with the error on the telluric data
+
+    readin_kwargs = {"non_std_fits"  :False,
+                     "disp_type"     :'log linear',
+                     "preferred_disp":'crval'}
+
+    def _get_obj (filename, header, use_order, hdu_data, hdu_error, **readin_kwargs):
+        x_data = readin(filename,hdu=hdu_data,**readin_kwargs)
+        x_data.set_use_cropped(False)
+        wl = x_data.get_wl(use_order)
+        data = x_data.get_data(use_order)
+
+        x_err = readin(filename,hdu=hdu_error)
+        err = x_err.get_data(use_order)
+        var = err**2
+        inv_var = var_2_inv_var(var)
+    
+        return eyeSpec_spec(wl,data,inv_var,header)
+
+    headeru = pyfits.open(filename)
+    header = headeru[hdu_header].header
+    
+    data_out = _get_obj(filename,header,use_order,hdu_flux,hdu_err,**readin_kwargs)
+    tell_out = _get_obj(filename,header,use_order,hdu_tell,hdu_tell_er,**readin_kwargs)
+
+    data_out.header = header
+    tell_out.header = header
+
+    return data_out,tell_out
+
+def readin_makee (filename,varience_filename=None,output_list=False,verbose=False):
+
+    """ 
+    Knows how to identify the KOA MAKEE file structure which ships with extracted data
+    and apply the eyeSpec function readin to the important directories to obtain a coherent 
+    spectrum object from the files
+
+
+    INPUTS:
+    filename : give an individual filename for the star or give the top level Star directory from MAKEE. 
+               It will go from TOP_LEVEL/extracted/makee/ and use directories ccd1/ etc to find the appropriate files
+
+    output_list : if it finds multiple chips of data it will return as a list and not a combined object
+
+
+    """
+    non_std_fits=False
+    disp_type='default'
+    preferred_disp='makee'
+    
+
+    def obj_var_2_inv_var (obj,fill=1e50):
+        var = deepcopy(obj._data)
+
+        # !! how to treat non values, i.e. negative values
+        zeros = (var<=0)
+        bad = (var>=fill/2.0)
+        infs = (var == np.inf)
+
+        var[zeros] = 1.0/fill
+        inv_var = 1.0/var
+
+        # set points which are very large to the fill
+        inv_var[zeros] = fill
+        # set points which are almost zero to zero
+        inv_var[bad] = 0.0
+        inv_var[infs] = 0.0
+
+        obj._inv_var = deepcopy(inv_var)
+        return inv_var
+
+
+    filename = str(filename)
+    if not os.path.exists(filename): raise ValueError("the given path does not exist")
+
+    objs = {}
+    inv_vars = {}
+
+    if os.path.isdir(filename):
+
+        if filename[-1:] != '/': filename += "/"
+        
+        # !! could make it smarter so it would know from anywhere within the TOP_FILE/extracted/makee/ chain
+        
+        full_path = filename+'extracted/makee/'
+        
+        if not os.path.exists(full_path): raise ValueError("Must have extracted files:"+full_path)
+        
+        ccds = os.listdir(full_path)
+        
+        for ccdir in ccds:
+            if not os.path.isdir(full_path+ccdir): continue
+            if not os.path.exists(full_path+ccdir+'/fits/'): continue
+
+            if ccdir in objs.keys():
+                print "Directory was already incorporated:"+ccdir
+                continue
+
+            fitspath = full_path+ccdir+'/fits/'
+            fitsfiles = os.listdir(fitspath)
+
+            print ""
+            print "="*20+format("GETTING DATA FROM DIRECTORY:"+ccdir,'^40')+"="*20
+            for ffname in fitsfiles:
+                fname = fitspath+ffname
+
+                # !! if file.find("_*.fits")
+                # !! I could add in stuff which would go as another band for the current Flux
+
+                if ffname.find("_Flux.fits") != -1: 
+                    print "flux file:"+ccdir+'/fits/'+ffname
+                    objs[ccdir] = readin(fname,preferred_disp=preferred_disp,disp_type=disp_type,non_std_fits=non_std_fits,verbose=verbose)
+
+                elif ffname.find("_Var.fits") != -1:
+                    print "variance file:"+ccdir+'/fits/'+ffname
+                    tmp_obj = readin(fname,preferred_disp=preferred_disp,disp_type=disp_type,non_std_fits=non_std_fits,verbose=verbose)
+                    inv_vars[ccdir] = obj_var_2_inv_var(tmp_obj)
+
+
+    else:
+        print "Reading in flux file:"+fname
+        objs['file'] = readin(filename,preferred_disp=preferred_disp,disp_type=disp_type,non_std_fits=non_std_fits,verbose=verbose)
+
+        if varience_filename is not None:
+            inv_var = readin(varience_filename,preferred_disp=preferred_disp,disp_type=disp_type,non_std_fits=non_std_fits,verbose=verbose)
+            inv_vars['file'] = obj_var_2_inv_var(inv_var)
+
+
+    num_objs = 0
+
+    OUTPUT_list = []
+    OUT_header = []
+    OUT_wl = []
+    OUT_data = []
+    OUT_inv_var = []
+
+
+    for key in objs.keys():
+        obj1 = objs[key]
+        inv_var1 = inv_vars[key]
+        # !! note I'm masking out the inf values
+        mask = (inv_var1 == np.inf)
+        inv_var1[mask] = 0.0
+
+        if obj1._inv_var.shape != inv_var1.shape:
+            print "HeadsUp: object and inverse variance shape are not the same"
+        else: obj1._inv_var = deepcopy(inv_var1)
+            
+        num_objs += 1
+
+        if output_list:
+            OUTPUT_list.append(obj1)
+        else:
+            OUT_header.append(obj1.header)
+            if obj1._wl.shape[0] > 1: print "HeadsUp: Multiple bands detected, only using the first"
+            OUT_wl.append(obj1._wl[0])
+            OUT_data.append(obj1._data[0])
+            OUT_inv_var.append(obj1._inv_var[0])
+
+    if output_list:
+        if num_objs == 1: return OUTPUT_list[0]
+        else: return OUTPUT_list        
+    else:
+        print ""
+        print "="*30+format("COMBINING",'^20')+"="*30
+        wl = np.concatenate(OUT_wl)
+        data = np.concatenate(OUT_data)
+        inv_var = np.concatenate(OUT_inv_var)
+
+        obj = eyeSpec_spec(wl,data,inv_var,OUT_header[0])
+        obj.hdrlist = OUT_header
+        obj.filename = fitspath
+        obj.edit.sort_orders()
+        return obj
+
+def readin_hst (filename,get_data=False):
+    """
+    This function is designed to read in Hubble Space Telescope Archive x1d data
+    
+    """
+    format_error = "Unexpected HST format for fits file. Please use the X1D"
+    
+    try: hdulist = pyfits.open(filename)
+    except: raise ValueError(format_error)
+    
+    if len(hdulist) != 2: raise ValueError(format_error)
+
+    hdu = hdulist[1] # the data table
+    
+    wl = hdu.data['WAVELENGTH']
+    flux = hdu.data['FLUX']
+    var = hdu.data['ERROR']**2
+    inv_var = var_2_inv_var(var)
+    
+    if get_data: return (wl,flux,inv_var)
+     
+    spec_obj = eyeSpec_spec(wl,flux,inv_var,hdu.header)
+    
+    # set up private information
+    
+    spec_obj.filename = filename
+    spec_obj._private_info['filename'] = filename
+            
+    if len(hdulist) > 1: spec_obj.hdrlist = [h.header for h in hdulist]
+        
+    return spec_obj
+
+    
+    
+    
+    
+    
+    
+    
 
 
 
