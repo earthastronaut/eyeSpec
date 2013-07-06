@@ -1,7 +1,6 @@
 
 import pdb #@UnusedImport
 from dependencies import np, deepcopy, plt, FormatStrFormatter
-from interactive_classes import Cursor
 from core import inv_var_2_var, query_fits_header
 
 pass
@@ -49,7 +48,7 @@ pass
 # basic plot of spec object
 
 def plot_spec (spec, fig_num = None, ax=None, fig_size = (10.0,8.0), adderror=False,
-               alt_color=True, addcursor=False, num_orders=False,
+               alt_color=True, num_orders=False,
                ylabel='Data', zorder=0, **mpl_kwargs):
     """ 
     This uses matplotlib to create a basic figure with the data of the input spectrum
@@ -68,7 +67,6 @@ def plot_spec (spec, fig_num = None, ax=None, fig_size = (10.0,8.0), adderror=Fa
     adderror      (bool) If True will plot the error from the spectrum class
     alt_color     (bool) If True will use alternate order colors based on eyeSpec 
                          internal sceme
-    addcursor     (bool) If True it will add a long and height wise cursor
     num_orders    (bool) If True will annotate the plot with the order number
     ylabel        (str) Give the label for the y axis
     zorder        (int) Gives the horizontal stack of matplotlib objects
@@ -113,12 +111,6 @@ def plot_spec (spec, fig_num = None, ax=None, fig_size = (10.0,8.0), adderror=Fa
     if ax is None: ax = plt.figure(fig_num,figsize = fig_size).add_subplot(111)
     elif repr(ax).find("matplotlib.axes.AxesSubplot") == -1: raise ValueError("expected ax which was a matplotlib subplot")
     
-    if addcursor:
-        try:
-            cursor = Cursor(ax)
-            cursor.connect()
-        except: pass
-
     if 'color' in mpl_kwargs.keys(): alt_color=False
 
     ax.set_xlim(spec.get_wlbounds())

@@ -6,12 +6,11 @@
 #
 ################################################################################
 # import modules
-if __name__ != '__main__':
-    import pdb #@UnusedImport
-    from eyeSpec import Params
-    from base_functions import var_2_inv_var
-    from base_classes import query_fits_header, eyeSpec_spec
-    from dependencies import np, os, time, deepcopy, scipy, pyfits, pickle
+
+import pdb #@UnusedImport
+from eyeSpec import Params
+from core import var_2_inv_var, query_fits_header, eyeSpec_spec
+from dependencies import np, os, time, deepcopy, scipy, pyfits, pickle
 
     
 pass

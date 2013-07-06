@@ -1,6 +1,5 @@
 if __name__ != '__main__':
     import pdb #@UnusedImport
-    from base_functions import reduce_output_shape
     from dependencies import np, os, sys, time, deepcopy, pyfits, scipy
     from resampling import get_resampling_matrix, Gaussian_Density
 

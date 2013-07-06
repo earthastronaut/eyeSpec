@@ -10,7 +10,8 @@
 #    13, June 2013: Dylan Gregersen
 #    3,  July 2013: Dylan Gregersen
 #                   more notes about necessary functions
-#
+#    5,  July 2013: Dylan Gregersen
+#                   added comments which the code analysis tool can understand
 
 #==============================================================================#
 # Modules
@@ -30,19 +31,15 @@ import re #@UnusedImport
 #==============================================================================#
 # wxPython
 found_wx = True
+
 try: import wxversion
 except: found_wx = False
 
-if found_wx:
-    wxversion.ensureMinimal('2.8')
-    import wx
-    from wx.lib.newevent import NewEvent #@UnusedImport
-else:
-    print "HeadsUp: Many of the programs written in eyeSpec rely on wxPython which did not import into your version of python (try >> import wx) many of the more advanced interactive data editing probably won't work"
-    wx = None
+if found_wx: wxversion.ensureMinimal('2.8')
+# else: print "HeadsUp: Many of the programs written in eyeSpec rely on wxPython which did not import into your version of python (try >> import wx) many of the more advanced interactive data editing probably won't work"
 
 def check_for_wx ():
-    if not found_wx: raise ValueError("This program relies on wxPython and wxversion which weren't found")
+    if not found_wx: raise ValueError("This program of eyeSpec relies on wxPython and wxversion which weren't found")
 
 #==============================================================================#
 # pyfits
@@ -59,6 +56,7 @@ except: raise ValueError("module cPickle is required")
 try: import numpy
 except: raise ValueError("module numpy is required: http://www.numpy.org/")
 np = numpy
+
 check_version = numpy.__version__.split(".")
 meets_min = True
 c1 = check_version[0]
@@ -86,26 +84,23 @@ if c1 < 0: meets_min = False
 elif c1 == 0 and c2 < 10: meets_min = False
 elif c1 == 0 and c2 == 10 and c3 < 1: meets_min = False
 if not meets_min:  print "Warning: scipy version is less than minimum, may encounter errors. 0.10.1 > "+check_version
-
+from scipy import sparse #@UnusedImport
 
 #==============================================================================#
 # Matplotlib
 import matplotlib # Must have matplotlib for any eyeSpec internal plotting
 mpl = matplotlib
-if matplotlib.rcParams['backend'] != 'WXAgg':
-    if sys.platform == 'darwin': # on a Mac
-        if sys.version.find('64-bit') != -1:
-            print "DANGER WILL ROBINSON: on a Mac OSX the WxAgg backend for the 64-bit EPD version of python is currently unavailable. You can TRY to fix this, but I did and (I assume) the EPD folks did and neither of us have found a solution. That said, eventually wxPython will be working with the libsraries of the Mac 64-bit system. Until then I suggest running this on a system which supports wxPython (32-bit on Mac works and is the most thoroughly tested). For now I'm going ahead with switching to the WxAgg backend but it'll probably crash on you. Have a great day!"
-            # the other option is to write a different program, similar to below.
-            # this basically is an interactive way to output a list of x-points which are the overlaps for different orders, as well as delete parts of orders.
-    matplotlib.rcParams['backend'] = 'WXAgg'
-    
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg
-FigureCanvas = FigureCanvasWxAgg
 
-from matplotlib.backends.backend_wx import NavigationToolbar2Wx #@UnusedImport
+if found_wx:
+    if matplotlib.rcParams['backend'] != 'WXAgg':
+        if sys.platform == 'darwin': # on a Mac
+            if sys.version.find('64-bit') != -1:
+                print "DANGER WILL ROBINSON: on a Mac OSX the WxAgg backend for the 64-bit EPD version of python is currently unavailable. You can TRY to fix this, but I did and (I assume) the EPD folks did and neither of us have found a solution. That said, eventually wxPython will be working with the libsraries of the Mac 64-bit system. Until then I suggest running this on a system which supports wxPython (32-bit on Mac works and is the most thoroughly tested). For now I'm going ahead with switching to the WxAgg backend but it'll probably crash on you. Have a great day!"
+                # the other option is to write a different program, similar to below.
+                # this basically is an interactive way to output a list of x-points which are the overlaps for different orders, as well as delete parts of orders.
+        matplotlib.rcParams['backend'] = 'WXAgg'
+
 from matplotlib.figure import Figure #@UnusedImport
-
 from matplotlib.widgets import Button #@UnusedImport
 import matplotlib.pylab as plt #@UnusedImport
 #from matplotlib.ticker import LinearLocator, MultipleLocator
@@ -113,9 +108,8 @@ from matplotlib.pylab import FormatStrFormatter, savefig #@UnusedImport
 from matplotlib.path import Path #@UnusedImport
 
 
-if __name__ != "__main__":
-    #==============================================================================#
-    # resampling
-    import resampling #@UnusedImport
+#==============================================================================#
+# resampling
+import resampling #@UnusedImport
 
 

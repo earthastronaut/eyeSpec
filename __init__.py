@@ -10,7 +10,7 @@ Params = {'verbose_level':0,
 #==============================================================================#
 # import some modules which are used
 import dependencies
-from dependencies import np, mpl, plt, scipy, pdb
+from dependencies import np, os, mpl, plt, scipy, pdb
 
 #==============================================================================#
 # import basic functions for eyeSpec
@@ -24,21 +24,11 @@ from coadd import combine_orders
                 
 from plotting import plot_spec
 plotspec = plot_spec
+ 
+#==============================================================================# 
+# from interactive import *
   
-#==============================================================================#
-# import interactive data editing
-from interactive_classes import Cursor, EventConnections
-
-from app_edit_var import edit_var
-
-from app_edit_rv import edit_rv
-
-from app_edit_ctm import edit_ctm
-
-from app_edit_data import edit_data
-
-from app_iplotspec import iplotspec
-
+  
 #==============================================================================#
 # import SPECTRE emulator
 #import SPECTRE_emulator as SP
@@ -61,7 +51,6 @@ if Params['goofy_version']:
     print "    00ee      0eeoo       00ee     0000eeeoo    0eoo	      00ee     00eeeo"
     print "================================================================================"
     print "================================================================================"
-    from dependencies import os
     os.system("say -v g 'welcome to eyeSpec'")
 
 
