@@ -1,0 +1,14 @@
+# This is a sparse linelist, which will work if you have converage and fairly weak lines. 
+  6562.800  H
+  4861.320  H
+  4340.471  H
+  5167.322  Mg I
+  5172.685  Mg I
+  5183.604  Mg I
+  5889.950  Na I
+  5895.923  Na I
+  6065.480  Fe I
+  6062.850  Fe I
+  6021.780  Mn I
+  6022.490  Fe I
+  5288.525  Fe I
