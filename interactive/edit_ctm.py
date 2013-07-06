@@ -4,7 +4,7 @@ if __name__ != '__main__':
     from eyeSpec.interactive_IO import ProgressSave, InputOutput
     from eyeSpec.interactive_classes import (EventConnections, Cursor, History, KeyboardConfiguration, SysOutListener, RandomPanel,
                                              eyeSpecBaseEventManager, eyeSpecBaseDataPanel, eyeSpecBaseMainPanel, eyeSpecBaseFrame, eyeSpecBaseDataPlot)
-    from eyeSpec.extended_IO import save_spec, load_spec
+    from eyeSpec.IO import save_spec, load_spec
     from eyeSpec.base_functions import find_overlap_pts, alt_order_colors
     from eyeSpec import __path__ as path_2_eyeSpec
     # now import basic dependencies from other modules

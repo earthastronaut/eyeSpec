@@ -590,7 +590,7 @@ class InteractiveDataEditor:
         # !! might need some prechecks so that obj.edit.crop doesn't raise errors
         # I know it'll be ok with self._order_sel_i, and box_bounds is given/ndarray/float
         # but will it find points, if it doesn't how will it complain? probably badly
-        self.spec_obj.edit.crop(order=deepcopy(self._ordi), inverse=True, box_bounds=box_bounds)
+        self.spec_obj.edit.crop(order=deepcopy(self._ordi), include=True, box_bounds=box_bounds)
         self.dataplot.plot_data.update_plot_data(self.spec_obj)
 
     def translate_data (self,to_wl=0,to_data=0):

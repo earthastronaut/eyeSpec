@@ -546,8 +546,7 @@ class OrderSNRSelections:
         self.order_index = ordi
         self.ax = ax
         self._xbounds = xbounds
-
-         
+  
     def append (self,item):
         if repr(item) != 'SNR_Region': 
             print "Input with wrong repr:",repr(item)
