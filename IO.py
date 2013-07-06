@@ -8,11 +8,10 @@
 # import modules
 if __name__ != '__main__':
     import pdb #@UnusedImport
-    from __init__ import Params
+    from eyeSpec import Params
     from base_functions import var_2_inv_var
     from base_classes import query_fits_header, eyeSpec_spec
     from dependencies import np, os, time, deepcopy, scipy, pyfits, pickle
-    verbose = Params['verbose_level']
 
     
 pass
@@ -1144,6 +1143,18 @@ MODIFICATION HISTORY:
 ############################################################################
 # readin is the main function for input
 
+def readin_spec (filename):
+    """
+    Readin a specified eyeSpec class object from a spectrum file
+    """
+    try: out_spec_obj = pickle.load(open(filename,'rb'))
+    except: raise ValueError("Invalid pickle file : "+filename)
+
+    if out_spec_obj.__class__.__name__ not in ('eyeSpec_spec','eyeSpec_fits'): raise IOError("Loaded an object which is not of class eyeSpec_spec or eyeSpec_fits")
+    return out_spec_obj 
+  
+load_spec = readin_spec
+
 pass
 #################################################################################
 # This is the general read in function for fits and text files
@@ -1225,6 +1236,14 @@ MODIFICATION HISTORY:
     if is_text_file:
         spec_obj = readin_txt(filename,txt_data=txt_data,get_data=get_data)        
         return spec_obj      
+
+    #### Check to see if it's a .spec file #########
+    try: 
+        spec_obj = readin_spec(filename)
+        if get_data: return spec_obj._wl, spec_obj._data, spec_obj._inv_var
+        return spec_obj
+    except: pass
+    
 
     #### now check how it behaves as a fits file
     if non_std_fits: hdulist = pyfits.open(filename)
@@ -1396,233 +1415,7 @@ MODIFICATION HISTORY:
 
 pass
 #################################################################################
-# extended IO functions
-
-def save (spec_obj,filename=None,unique_name=True,clobber=False):
-    fsuffix = '.spec' #'.pkl'
-    
-    """ 
-    this is used to save a pickled version of the current object
-    
-    INPUTS:
-    ============  ==============================================================
-    keyword       (type) Description
-    ============  ==============================================================
-    spec_obj      (eyeSpec_spec) A eyeSpec spectrum object
-    filename      (str) If '.spec' is not added to the end this string will 
-                     be used as a prefix for the full filename. 
-                     filename = 'foo'  ===> 'foo.spec'
-                     Otherwise the filename will be used.
-                     If None then the filename will be generic "SpecObjSave"
-    unique_name   (bool) if True then it will make sure the file saves by 
-                     checking all file names and adding _# if multiples appear
-    clobber       (bool) if True it will delete existing files, if False it
-                     will raise an error if the file exists,
-                     Not applicable if unique_name is True 
-    ============  ==============================================================
-
-    """
-    # !! I could change this to be a special file
-    # Header: contains actual header, info, and notes strings
-    # DATA: contains wavelength, data, inv_var information
-
-    unique_name = bool(unique_name)
-    clobber = bool(clobber)
-
-    #--------------------------------------------#
-    if filename is None:
-        filename = 'SpecObjSave'
-        #if obj._obj_name is not None: filename += '_'+obj._obj_name
-    else: 
-        fileprefix = str(filename).strip(fsuffix)
-        fileprefix = str(fileprefix)
-        if type(fileprefix).__name__ in ['str','string_']: filename = fileprefix
-        else: raise TypeError("fileprefix must be of type string not "+type(fileprefix).__name__)
-      
-    filename += fsuffix
-  
-    #--------------------------------------------#
-    if unique_name:
-        # save only unique names by checking if the file already exists
-        i = 1
-        u_filename = deepcopy(filename)
-        while True:
-            if os.path.exists(u_filename):
-                u_filename = deepcopy(filename[:-4]+"_"+str(i)+filename[-4:])
-                i+=1
-            else: break
-    else:
-        if os.path.exists(filename) and not clobber: raise IOError("clobber is set to false and given file exists: "+filename)
-
-    #--------------------------------------------#
-    pickle.dump(spec_obj,open(filename,'wb'))
-
-save_spec = save # for capatibility
-
-def load (filename): 
-    """
-    Readin a specified eyeSpec class object from a spectrum file
-    """
-    try: out_spec_obj = pickle.load(open(filename,'rb'))
-    except: raise ValueError("Invalid pickle file : "+filename)
-
-    if out_spec_obj.__class__.__name__ not in ['eyeSpec_spec','eyeSpec_fits']: raise IOError("Loaded an object which is not of class eyeSpec_spec or eyeSpec_fits")
-    return out_spec_obj
-
-load_spec = load
-
-def save_txt (spec_obj,filename,band='default',use_cropped=False,order=None,clobber=True,include_varience=True,divide_orders=True,comment='#',divide_header=True):
-    """
-    Outputs the eyeSpec spectrum class into a given file as text data.
-
-    INPUTS:
-    =============   ============================================================
-    keyword         (type) Description
-    =============   ============================================================
-    spec_obj        (eyeSpec_spec) spectrum class for eyeSpec
-    filename        (str) This gives the filename to save the as
-    band            (int,'default') This tells which of the first dimensions of
-                      spec_obj to use. 'default' is spec_obj.get_band()
-    use_cropped     (bool) If True it will crop off points at the begining and 
-                      end of orders which have inverse varience = 0, i.e. have
-                      inf errors
-    order           (int,array,None) you can specify which orders are output
-                      If None then it will output all possible orders
-    clobber         (bool) If True then the function will overwrite files of the
-                      same file name that already exis
-
-    include_varience (bool) If True the third column which gives the varience 
-                      will be included
-    divide_orders    (bool) If True it will but a commend line with '#' between
-                      each of the orders
-    comment          (str) What symbol to use as a comment
-    divide_header    (bool,None) If False it will give one long string as the first header line
-                                 If True it will divide it up by 80 character lines with a comment of '#:' 
-                                 If None then no header will be printed
-    =============   ============================================================
-
-    """
-    #===============================================#
-    # check inputs
-    if spec_obj.__class__.__name__ != 'eyeSpec_spec': raise ValueError("spec MUST BE OF CLASS eyeSpec_spec")
-
-    # double check booleans
-    clobber = bool(clobber)
-    include_varience = bool(include_varience)
-    divide_orders = bool(divide_orders)
-    if divide_header is not None:
-        divide_header = bool(divide_header)
-
-    # if order is not None then convert and check
-    if order is not None:
-        try: order = np.array(order,dtype=int)
-        except: raise ValueError("Order must be convertable to an integer ndarray")
-        if order.ndim == 0: order = np.array([order])
-        elif order.ndim > 1: 
-            print "HeadsUp: Multiple dimensions give for order, taking only the first"
-            order = order[0]
-
-    # if band is not default check it and output
-    if band != 'default':
-        band = spec_obj._check_band_num(band=band)
-        spec_obj.set_band(band)
-
-    # check order_delimiter
-    if type(comment).__name__ not in ['str','string_']: raise ValueError("Please give comment delimiter as a string")
-    
-    # filename:
-    if type(filename).__name__ not in ['str','string_']: raise ValueError("Filename must be a string")
-
-    if os.path.exists(filename) and not clobber: raise IOError("Clobber set to False and file exists: '"+filename+"'")
-    
-
-    #===============================================#
-    # edit header to reflect current information 
-    # !! not exactly sure yet
-
-
-    #===============================================#
-    # open and write to file
-    f = open(filename,'w')
-
-
-    # !! add check for multiple headers
-
-    if divide_orders:
-        aline = comment+"eSorders - eyeSpec multiple order text format"
-        if divide_header: aline += "\n"
-        else: aline = format(aline,'80')
-        f.write(aline)
-
-    #--------------------------------#
-    # add header
-    if divide_header is not None:
-        header_line = ""
-        for card in spec_obj.header.ascardlist():
-            card = str(card).strip()
-            if divide_header:
-                f.write(comment+": "+card)
-                f.write("\n")
-            else: header_line += card
-            
-        if not divide_header:
-            f.write(comment+" ")
-            f.write(header_line.strip())
-            f.write("\n")
-
-    #--------------------------------#
-    # add all data
-    # walk through orders
-    if order is not None: ran = order
-    else: ran = range(spec_obj.shape[1])
-
-    use_cropped = bool(use_cropped)
-    spec_obj.set_use_cropped(use_cropped)
-    for i in ran:
-        # output information
-        wl = spec_obj.get_wl(i)
-        dat = spec_obj.get_data(i)
-        inv_var = spec_obj.get_inv_var(i)
-
-        if divide_orders and len(ran) > 1: 
-            f.write(" ".join([comment,"order",str(i),str(len(wl)),"\n"]))
-        # go through data points
-        for j in range(len(wl)):
-            out = [format(wl[j],'>15.10'),
-                   format(dat[j],'>15.10')]
-            if include_varience:
-                if abs(inv_var[j]) < 1e-30: var = 1e30
-                else: var = 1.0/inv_var[j]
-                out.append(format(var,'>10.10'))
-            out.append("\n")
-            f.write("  ".join(out))
-
-    spec_obj.set_use_cropped('previous')
-    #===============================================#
-    f.close()
-
-save_spec_txt = save_txt
-
-def save_txt_orders (spec_obj, base_name, band='default',use_cropped=False,clobber=True,include_varience=True,comment='#',divide_header=True):
-    """
-    Splits a eyeSpec spectrum object into orders with the file name set by the base name and the order number
-    e.g. base_name = 'my_spectrum'
-    order 0 = my_spectrum_0.txt
-    order 1 = my_spectrum_1.txt
-    order 2 = my_spectrum_2.txt
-    order 3 = my_spectrum_3.txt
-    ....and so on
-    
-
-    """
-    
-    orders = range(spec_obj.shape[1])
-    
-    for i in orders:
-        fname = str(base_name)+"_"+str(i)+".txt"
-        save_txt(spec_obj,fname,
-                      band=band,use_cropped=use_cropped,order=[i],
-                      clobber=clobber,include_varience=include_varience,comment=comment,divide_header=divide_header)
+# special readin functions
 
 def readin_single_order_files (filelist,relative_paths=False,verbose=True):
     """
@@ -2036,7 +1829,224 @@ def readin_hst (filename,get_data=False):
         
     return spec_obj
 
+   
+pass
+#################################################################################
+# output functions
+def save (spec_obj,filename=None,unique_name=True,clobber=False):
+    fsuffix = '.spec' #'.pkl'
     
+    """ 
+    this is used to save a pickled version of the current object
+    
+    INPUTS:
+    ============  ==============================================================
+    keyword       (type) Description
+    ============  ==============================================================
+    spec_obj      (eyeSpec_spec) A eyeSpec spectrum object
+    filename      (str) If '.spec' is not added to the end this string will 
+                     be used as a prefix for the full filename. 
+                     filename = 'foo'  ===> 'foo.spec'
+                     Otherwise the filename will be used.
+                     If None then the filename will be generic "SpecObjSave"
+    unique_name   (bool) if True then it will make sure the file saves by 
+                     checking all file names and adding _# if multiples appear
+    clobber       (bool) if True it will delete existing files, if False it
+                     will raise an error if the file exists,
+                     Not applicable if unique_name is True 
+    ============  ==============================================================
+
+    """
+    # !! I could change this to be a special file
+    # Header: contains actual header, info, and notes strings
+    # DATA: contains wavelength, data, inv_var information
+
+    unique_name = bool(unique_name)
+    clobber = bool(clobber)
+
+    #--------------------------------------------#
+    if filename is None:
+        filename = 'SpecObjSave'
+        #if obj._obj_name is not None: filename += '_'+obj._obj_name
+    else: 
+        fileprefix = str(filename).strip(fsuffix)
+        fileprefix = str(fileprefix)
+        if type(fileprefix).__name__ in ['str','string_']: filename = fileprefix
+        else: raise TypeError("fileprefix must be of type string not "+type(fileprefix).__name__)
+      
+    filename += fsuffix
+  
+    #--------------------------------------------#
+    if unique_name:
+        # save only unique names by checking if the file already exists
+        i = 1
+        u_filename = deepcopy(filename)
+        while True:
+            if os.path.exists(u_filename):
+                u_filename = deepcopy(filename[:-4]+"_"+str(i)+filename[-4:])
+                i+=1
+            else: break
+    else:
+        if os.path.exists(filename) and not clobber: raise IOError("clobber is set to false and given file exists: "+filename)
+
+    #--------------------------------------------#
+    pickle.dump(spec_obj,open(filename,'wb'))
+
+save_spec = save # for capatibility
+
+def save_txt (spec_obj,filename,band='default',use_cropped=False,order=None,clobber=True,include_varience=True,divide_orders=True,comment='#',divide_header=True):
+    """
+    Outputs the eyeSpec spectrum class into a given file as text data.
+
+    INPUTS:
+    =============   ============================================================
+    keyword         (type) Description
+    =============   ============================================================
+    spec_obj        (eyeSpec_spec) spectrum class for eyeSpec
+    filename        (str) This gives the filename to save the as
+    band            (int,'default') This tells which of the first dimensions of
+                      spec_obj to use. 'default' is spec_obj.get_band()
+    use_cropped     (bool) If True it will crop off points at the begining and 
+                      end of orders which have inverse varience = 0, i.e. have
+                      inf errors
+    order           (int,array,None) you can specify which orders are output
+                      If None then it will output all possible orders
+    clobber         (bool) If True then the function will overwrite files of the
+                      same file name that already exis
+
+    include_varience (bool) If True the third column which gives the varience 
+                      will be included
+    divide_orders    (bool) If True it will but a commend line with '#' between
+                      each of the orders
+    comment          (str) What symbol to use as a comment
+    divide_header    (bool,None) If False it will give one long string as the first header line
+                                 If True it will divide it up by 80 character lines with a comment of '#:' 
+                                 If None then no header will be printed
+    =============   ============================================================
+
+    """
+    #===============================================#
+    # check inputs
+    if spec_obj.__class__.__name__ != 'eyeSpec_spec': raise ValueError("spec MUST BE OF CLASS eyeSpec_spec")
+
+    # double check booleans
+    clobber = bool(clobber)
+    include_varience = bool(include_varience)
+    divide_orders = bool(divide_orders)
+    if divide_header is not None:
+        divide_header = bool(divide_header)
+
+    # if order is not None then convert and check
+    if order is not None:
+        try: order = np.array(order,dtype=int)
+        except: raise ValueError("Order must be convertable to an integer ndarray")
+        if order.ndim == 0: order = np.array([order])
+        elif order.ndim > 1: 
+            print "HeadsUp: Multiple dimensions give for order, taking only the first"
+            order = order[0]
+
+    # if band is not default check it and output
+    if band != 'default':
+        band = spec_obj._check_band_num(band=band)
+        spec_obj.set_band(band)
+
+    # check order_delimiter
+    if type(comment).__name__ not in ['str','string_']: raise ValueError("Please give comment delimiter as a string")
+    
+    # filename:
+    if type(filename).__name__ not in ['str','string_']: raise ValueError("Filename must be a string")
+
+    if os.path.exists(filename) and not clobber: raise IOError("Clobber set to False and file exists: '"+filename+"'")
+    
+
+    #===============================================#
+    # edit header to reflect current information 
+    # !! not exactly sure yet
+
+
+    #===============================================#
+    # open and write to file
+    f = open(filename,'w')
+
+
+    # !! add check for multiple headers
+
+    if divide_orders:
+        aline = comment+"eSorders - eyeSpec multiple order text format"
+        if divide_header: aline += "\n"
+        else: aline = format(aline,'80')
+        f.write(aline)
+
+    #--------------------------------#
+    # add header
+    if divide_header is not None:
+        header_line = ""
+        for card in spec_obj.header.ascardlist():
+            card = str(card).strip()
+            if divide_header:
+                f.write(comment+": "+card)
+                f.write("\n")
+            else: header_line += card
+            
+        if not divide_header:
+            f.write(comment+" ")
+            f.write(header_line.strip())
+            f.write("\n")
+
+    #--------------------------------#
+    # add all data
+    # walk through orders
+    if order is not None: ran = order
+    else: ran = range(spec_obj.shape[1])
+
+    use_cropped = bool(use_cropped)
+    spec_obj.set_use_cropped(use_cropped)
+    for i in ran:
+        # output information
+        wl = spec_obj.get_wl(i)
+        dat = spec_obj.get_data(i)
+        inv_var = spec_obj.get_inv_var(i)
+
+        if divide_orders and len(ran) > 1: 
+            f.write(" ".join([comment,"order",str(i),str(len(wl)),"\n"]))
+        # go through data points
+        for j in range(len(wl)):
+            out = [format(wl[j],'>15.10'),
+                   format(dat[j],'>15.10')]
+            if include_varience:
+                if abs(inv_var[j]) < 1e-30: var = 1e30
+                else: var = 1.0/inv_var[j]
+                out.append(format(var,'>10.10'))
+            out.append("\n")
+            f.write("  ".join(out))
+
+    spec_obj.set_use_cropped('previous')
+    #===============================================#
+    f.close()
+
+save_spec_txt = save_txt
+
+def save_txt_orders (spec_obj, base_name, band='default',use_cropped=False,clobber=True,include_varience=True,comment='#',divide_header=True):
+    """
+    Splits a eyeSpec spectrum object into orders with the file name set by the base name and the order number
+    e.g. base_name = 'my_spectrum'
+    order 0 = my_spectrum_0.txt
+    order 1 = my_spectrum_1.txt
+    order 2 = my_spectrum_2.txt
+    order 3 = my_spectrum_3.txt
+    ....and so on
+    
+
+    """
+    
+    orders = range(spec_obj.shape[1])
+    
+    for i in orders:
+        fname = str(base_name)+"_"+str(i)+".txt"
+        save_txt(spec_obj,fname,
+                      band=band,use_cropped=use_cropped,order=[i],
+                      clobber=clobber,include_varience=include_varience,comment=comment,divide_header=divide_header)
+ 
     
     
     
