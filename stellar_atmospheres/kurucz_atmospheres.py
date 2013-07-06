@@ -4,14 +4,18 @@
 # import modules
 from eyeSpec.dependencies import  np, os, subprocess #@UnresolvedImport
 from eyeSpec.core import get_filename #@UnresolvedImport
-from eyeSpec.stellar_atmospheres import makekurucz_exe #@UnresolvedImport
+from eyeSpec.stellar_atmospheres import executables #@UnresolvedImport
 from moog_functions import get_model_name
 
+pass
 #=============================================================================#
-# Check that kurucz function is available
-is_makekurucz_avail = os.path.isfile(makekurucz_exe)
-_makekurucz_avail_error = "Must have makekurucz executable declared to use this function not: "+makekurucz_exe
-
+def check_makekurucz (error=True):
+    _makekurucz_avail_error = "Must have makekurucz executable declared to use this function not: "+executables['makekurucz']
+    check =  os.path.isfile(executables['makekurucz'])
+    if not check and error: raise ValueError(_makekurucz_avail_error)
+    return check
+        
+pass
 #=============================================================================#
 # functions for creating the kurucz atmospheres
 
@@ -62,7 +66,7 @@ NOTES:
 
     (3) The individual modtypes may have inherent limits as well (e.g. feh in ODFNEW >= -2.5)
     
-    (4) This function won't work if the makekurucz_exe is not declared
+    (4) This function won't work if the executables['makekurucz'] is not declared
     
     (5) This will also overwrite any file names 'FINALMODEL'
     
@@ -75,8 +79,8 @@ EXAMPLE:
 MODIFICATION HISTORY:
     13, Jun 2013: Dylan Gregersen
     """
-    assert is_makekurucz_avail, _makekurucz_avail_error
-    MAKEKURUCZ_EXE = makekurucz_exe
+    check_makekurucz(True)
+    MAKEKURUCZ_EXE = executables['makekurucz']
     
     # impose kurucz limits
     if not (3500 < teff < 10000):
@@ -142,7 +146,8 @@ EXAMPLE:
 MODIFICATION HISTORY:
     13, Jun 2013: Dylan Gregersen
 
-    """    
+    """  
+    check_makekurucz(True)
     def convert_modtype (modtype):
         if modtype.lower()[0] == 'o': return 'ODFNEW'
         if modtype.lower()[0] == 'a': return 'AODFNEW'

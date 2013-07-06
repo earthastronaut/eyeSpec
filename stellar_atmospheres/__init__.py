@@ -5,13 +5,10 @@
 #===============================================================================#
 ######################## USER SETUP #############################################
 
-moog_exe = '/Applications/astro/Moog/MOOG'
-
-moog07_exe = "/uufs/astro.utah.edu/common/astro_data/products/moog2007-3/MOOG"
-
-moogsilent_exe = '/Applications/astro/Moog/MOOGSILENT'
-
-makekurucz_exe = '/Applications/astro/makekurandy/makekurucz3.e'
+executables = {'moog'      :'/Applications/astro/Moog/MOOG',
+               'moog07'    :"/uufs/astro.utah.edu/common/astro_data/products/moog2007-3/MOOG",
+               'moogsilent':'/Applications/astro/Moog/MOOGSILENT',
+               'makekurucz':'/Applications/astro/makekurandy/makekurucz3.e'}
 
 ######################## USER SETUP #############################################
 #===============================================================================#

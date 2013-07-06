@@ -1,24 +1,32 @@
 
 # Modules
 import pdb #@UnusedImport    
-from eyeSpec.stellar_atmospheres import moog_exe, moog07_exe, moogsilent_exe #@UnresolvedImport
+from eyeSpec.stellar_atmospheres import executables #@UnresolvedImport
 from eyeSpec.dependencies import np, os, time, subprocess, threading #@UnresolvedImport
 from eyeSpec.core import get_bounds, get_filename #@UnresolvedImport
 from moog_functions import read_moog_linelist, write_moog_par, write_moog_lines_in, simple_llist_data, get_model_name
 
-################################################################################
-# check the input executables
-# to declaire these variables go up to the USER SETUP area
-is_moog_avail = os.path.isfile(moog_exe)
-_moog_avail_error = "Must have MOOG executable declared to use this function not: "+moog_exe
+pass
+#=============================================================================#
+# checking to see if the exectuable exists
 
-is_moog07_avail = os.path.isfile(moog07_exe)
-_moog07_avail_error = "Must have MOOG 2007-3 executable declared to use this function not: "+moog07_exe
+def check_moog (error=False):
+    _avail_error = "Must have MOOG executable declared to use this function not: "+executables['moog']
+    check =  os.path.isfile(executables['moog'])
+    if not check and error: raise ValueError(_avail_error)
+    return check
+        
+def check_moog07 (error=False):
+    _avail_error = "Must have MOOG 2007-3 executable declared to use this function not: "+executables['moog07']
+    check =  os.path.isfile(executables['moog07'])
+    if not check and error: raise ValueError(_avail_error)
+    return check
 
-is_moogsilent_avail = os.path.isfile(moogsilent_exe)
-_moogsilent_avail_error = "Must have MOOGSILET executable declared to use this function not: "+moogsilent_exe
-
-################################################################################
+def check_moogsilent (error=False):
+    _avail_error = "Must have MOOGSILET executable declared to use this function not: "+executables['moogsilent']
+    check =  os.path.isfile(executables['moogsilent'])
+    if not check and error: raise ValueError(_avail_error)
+    return check
 
 pass
 #=============================================================================#
@@ -93,8 +101,8 @@ MODIFICATION HISTORY:
     
     ######################## USER SETUP #############################################
     
-    if   is_moogsilent_avail: MOOGEXE = moogsilent_exe
-    elif is_moog_avail: MOOGEXE = moog_exe
+    if   check_moogsilent(False): MOOGEXE = executables['moogsilent']
+    elif check_moog(False): MOOGEXE = executables['moog']
     else: raise ValueError("Neither MOOGSILENT or MOOG is available to use") 
 
     ######################## USER SETUP #############################################
@@ -246,7 +254,7 @@ EXAMPLE:
 MODIFICATION HISTORY:
     13, Jun 2013: Dylan Gregersen
     """
-    assert is_moog07_avail, _moog07_avail_error
+    check_moog07(True)
     # check type of input
     
     # get the lines from the line list
@@ -315,10 +323,10 @@ class _CORE_moog_ewfind(object):
     
     moog_linein = 'MOOGLINELIST.txt'
 
-    moog07_exe = moog07_exe
+    moog07_exe = executables['moog07']
 
     def __init__(self,linelist,model_in='FINALMODEL',moog_parfile='batch.par',timeout=5,verbose=True,logfile=None,linelist_filename='unknown'):
-        assert is_moog07_avail, _moog07_avail_error
+        check_moog07(True)
         #=================================================================================#
         # check inputs
         def check_file (fname):
@@ -562,7 +570,7 @@ MODIFICATION HISTORY:
     13, Jun 2013: Dylan Gregersen
         
     """
-    assert is_moog07_avail, _moog07_avail_error
+    check_moog07(True)
     teff,logg,feh,turb = model
 
     from kurucz_atmospheres import create_kurucz_atmo_model
@@ -604,8 +612,8 @@ MODIFICATION HISTORY:
 
     """
     from kurucz_atmospheres import run_create_atmo_model
-    
-    assert is_moog07_avail, _moog07_avail_error
+
+    check_moog07(True)    
     # get the input filename
     inputf = get_filename("Please give input linelist file:",'r')
     linelist = np.loadtxt(inputf,usecols=[0,1,2,3])
