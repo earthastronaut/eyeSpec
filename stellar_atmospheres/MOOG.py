@@ -573,7 +573,7 @@ MODIFICATION HISTORY:
     check_moog07(True)
     teff,logg,feh,turb = model
 
-    from kurucz_atmospheres import create_kurucz_atmo_model
+    from lte_atmospheres import create_kurucz_atmo_model
     check = create_kurucz_atmo_model(teff,logg,feh,turb,modtype=modtype,verbose=False)
     if not check: return False
     
@@ -611,7 +611,7 @@ MODIFICATION HISTORY:
     13, Jun 2013: Dylan Gregersen
 
     """
-    from kurucz_atmospheres import run_create_atmo_model
+    from lte_atmospheres import run_create_atmo_model
 
     check_moog07(True)    
     # get the input filename
