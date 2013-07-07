@@ -1,9 +1,9 @@
-if __name__ != '__main__':
-    import pdb #@UnusedImport
-    from dependencies import np, os, sys, time, deepcopy, pyfits, scipy
-    from resampling import get_resampling_matrix, Gaussian_Density
+# these are the basic functions and classes used by eyeSpec
 
-
+import pdb #@UnusedImport
+from dependencies import np, os, sys, time, deepcopy, pyfits, scipy
+from resampling import get_resampling_matrix, Gaussian_Density
+    
 pass
 ########################################################################################
 # useful classes and functions
