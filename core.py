@@ -1,6 +1,6 @@
 if __name__ != '__main__':
     import pdb #@UnusedImport
-    from dependencies import np, os, sys, time, deepcopy, pyfits, scipy, np_recfunc 
+    from dependencies import np, os, sys, time, deepcopy, pyfits, scipy
     from resampling import get_resampling_matrix, Gaussian_Density
 
 
@@ -266,6 +266,11 @@ example data to read:
     
         if not verbose: return
         
+        if len(data) == 0:
+            print "No data found"
+            return
+        
+        
         lines =  ['use column =>  ',
                   'index      =>  ',
                   'col label  =>  ',
@@ -344,7 +349,12 @@ example data to read:
         # if the first line of data get the column types
         if first_data_line:
             first_data_line = False
-
+            
+            # If there is no data 
+            if len(sline) == 0:
+                data = []
+                break
+            
             if usecols is None: usecols = np.arange(len(sline))
             else: usecols = np.array(usecols,dtype=int)-1
 
@@ -392,7 +402,7 @@ example data to read:
         outdata.append(col_data)
         
         # create the dictionary output if desired
-        if return_as in ('dict','recarray'):
+        if return_as in ('dict','record'):
             # columns ID
             ID = col_labels[j]
             baseID = deepcopy(ID)
@@ -416,7 +426,10 @@ example data to read:
     display_column_info(verbose, data, usecols, col_labels, col_types)
     if   return_as == 'list': return list(outdata)
     elif return_as == 'dict': return datad
-    elif return_as in 'record': return np.rec.array(datad.values(),titles=datad.keys()) #@UndefinedVariable
+    elif return_as in 'record': 
+        keys = datad.keys()
+        if len(keys) == 0: return np.rec.array([None]) #@UndefinedVariable
+        return np.rec.array(datad.values(),titles=keys) #@UndefinedVariable
     else: return outdata  # return as list of numpy arrays
                 
 pass
