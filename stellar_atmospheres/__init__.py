@@ -18,7 +18,7 @@ executables = {'moog'      :'/Applications/astro/Moog/MOOG',
 #===============================================================================#
 
 # Modules
-from lte_atmospheres import create_lte_atmosphere
+from lte_atmospheres import create_lte_atmosphere, convert_atlas12_for_moog
 
 from moog import synth as moog_synth
 from moog import ewfind as moog_ewfind
