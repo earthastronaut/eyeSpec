@@ -203,6 +203,22 @@ MODIFICATION HISTORY:
     # return list given above
     else: return batom
     
+def logeps_2_xfe (z,logeps,feh):
+    z = round(z)
+    batom = load_Batom("by z")
+    
+    # feh = feh_loggeps - feh_sun
+    xfe = logeps - (feh + batom[z][3])
+    return xfe
+
+def xfe_2_logeps (z,xfe,feh):
+    z = round(z)
+    batom = load_Batom("by z")
+    
+    # feh = feh_loggeps - feh_sun
+    logeps = xfe + (feh + batom[z][3])
+    return logeps 
+        
 def get_model_name (teff,logg,feh,vt,modtype=None):
     """
 PURPOSE:
@@ -1885,9 +1901,9 @@ EXAMPLE:
    >>>
 
 MODIFICATION HISTORY:
+    12, Jun 2013: Tim Anderton    
     13, Jun 2013: Dylan Gregersen
                     - replaced original dictionary with load_Batom which does the same task
-    12, Jun 2013: Tim Anderton    
     
 
     """
