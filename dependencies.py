@@ -30,16 +30,16 @@ import re #@UnusedImport
 
 #==============================================================================#
 # wxPython
-found_wx = True
+_found_wx = True
 
 try: import wxversion
-except: found_wx = False
+except: _found_wx = False
 
-if found_wx: wxversion.ensureMinimal('2.8')
+if _found_wx: wxversion.ensureMinimal('2.8')
 # else: print "HeadsUp: Many of the programs written in eyeSpec rely on wxPython which did not import into your version of python (try >> import wx) many of the more advanced interactive data editing probably won't work"
 
-def check_for_wx ():
-    if not found_wx: raise ValueError("This program of eyeSpec relies on wxPython and wxversion which weren't found")
+def _check_for_wx ():
+    if not _found_wx: raise ValueError("This package of eyeSpec relies on wxPython and wxversion which weren't found")
 
 #==============================================================================#
 # pyfits
@@ -53,11 +53,9 @@ except: raise ValueError("module cPickle is required")
 
 #==============================================================================#
 # numpy
-try: import numpy
-except: raise ValueError("module numpy is required: http://www.numpy.org/")
-np = numpy
+import numpy as np
 
-check_version = numpy.__version__.split(".")
+check_version = np.__version__.split(".")
 meets_min = True
 c1 = check_version[0]
 c2 = check_version[1]
@@ -91,7 +89,7 @@ from scipy import sparse #@UnusedImport
 import matplotlib # Must have matplotlib for any eyeSpec internal plotting
 mpl = matplotlib
 
-if found_wx:
+if _found_wx:
     if matplotlib.rcParams['backend'] != 'WXAgg':
         if sys.platform == 'darwin': # on a Mac
             if sys.version.find('64-bit') != -1:
