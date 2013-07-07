@@ -7,6 +7,23 @@ pass
 ########################################################################################
 # plot functions
 
+def data_line_scatter (cur_linestyle, cur_marker, alpha):
+    """ Convert data between line and scatter plot"""
+    
+    new_alpha= alpha
+    # if it's just lines, add in the marker
+    if cur_linestyle == '-':
+        if cur_marker in ('', None, 'none'): new_linestyle = '-'
+        else:  new_linestyle = 'none'
+        new_marker = '.'
+        new_alpha = 0.5
+    # if there are no lines then make it only line
+    elif cur_linestyle == 'none':
+        new_linestyle = '-'
+        new_marker = ''
+    else: raise ValueError("Whoops, I don't know this linestyle:" + str(cur_linestyle))
+    return new_marker, new_linestyle, new_alpha
+
 def figure_adjust_borders(fig, targets):
     "Translate desired pixel sizes into percentages based on figure size."
     # code thanks to user samplebias at http://stackoverflow.com/questions/6066091/python-matplotlib-figure-borders-in-wxpython
