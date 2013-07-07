@@ -1,6 +1,6 @@
 if __name__ != '__main__':
     import pdb #@UnusedImport
-    from dependencies import np, os, sys, time, deepcopy, pyfits, scipy #, np_recfunc 
+    from dependencies import np, os, sys, time, deepcopy, pyfits, scipy, np_recfunc 
     from resampling import get_resampling_matrix, Gaussian_Density
 
 
@@ -162,8 +162,8 @@ class query_fits_header:
     def __repr__ (self):
         return self.val
 
-def asciiread (filename, use_columns=None, comments='#', skiprows=0, delimiter=' ',
-              give_dict=False, display_check=True, 
+def asciiread (filename, usecols=None, comments='#', skiprows=0, delimiter=' ',
+              return_as='arrays', verbose=True, 
               npstring='a80', force_dtype=None):
     """
     This is designed for a ascii text file with the first row being the column names
@@ -174,8 +174,8 @@ def asciiread (filename, use_columns=None, comments='#', skiprows=0, delimiter='
     filename         (str) gives the name of the ascii data file to read in
                      file must have specific format, see NOTE0
 
-    use_columns      (list) gives the columns starting at 1 which to read
-                     e.g. use_columns = [1,4,5,7,10] 
+    usecols          (list) gives the columns starting at 1 which to read
+                     e.g. usecols = [1,4,5,7,10] 
 
     comments         (str) gives the character/string which indicates a comment line
 
@@ -184,16 +184,20 @@ def asciiread (filename, use_columns=None, comments='#', skiprows=0, delimiter='
     delimiter        (str) if ' ' then it will split on white space. Otherwise it 
                      will split on whatever string is given, e.g. delimiter=','
 
-    recarray        (bool) if True the function will return a numpy record array
-                     keys that are the column labels (see NOTE1)
-
-    display_check    (bool) if True it will print out lines for you to check with
+    return_as        (string) return as options are:
+                     "arrays" return list of numpy arrays (default)
+                     "list" which will return a list of the data
+                     "dict" which will return a dictionary with columns as labels (see NOTE1)
+                     "record" will return as numpy record array with fields as 
+                              columns (see NOTE1)
+    
+    verbose    (bool) if True it will print out lines for you to check with
 
     npstring         (str) gives the numpy string format which to use
                      if the number of characters is too low it may cut off your 
                      data at that character number
 
-    force_dtype      (np dtype) if given it will force all the data to be of that type
+    force_dtype      (numpy_dtype or None) if given it will force all the data to be of that type
     ==============   ===============================================================
 
     ----------------------------------------------------------------------------
@@ -222,7 +226,23 @@ def asciiread (filename, use_columns=None, comments='#', skiprows=0, delimiter='
 
 
 
+example data to read:
+     skiprows1
+     2, the next line starts the ascii read
+     Starname   Star_num   FeAVG      er    TiI       er    TiII      er  
+     HD134439          0  -1.575  0.0500   0.205    0.14   0.335    0.14  
+     HD134440          1   -1.55  0.0500   0.214    0.12   0.224    0.06 # comment information
+    CD-292277          2   -1.91  0.0500   0.133    0.07   0.233    0.07  
+
+      LHS1429          3   -1.51  0.0500     0.3    0.12     0.4    0.16  
+# comment line
+      LTT6194          4    -2.7  0.1000  0.5073    0.13  0.5873    0.14 
+
+
+
     """
+    comments = str(comments)
+    
     def parse_for_type (val,npstring):
         # val must start as string
         # check for float
@@ -241,103 +261,11 @@ def asciiread (filename, use_columns=None, comments='#', skiprows=0, delimiter='
         # return string
         return npstring
 
-    # open file
-
-    f = open(filename,'r')
-    lines = f.readlines()
-    f.close()
-
-    # read first line to get the column labels
-    delimiter = str(delimiter)
-    if delimiter == ' ': sline = lines[0].rstrip().split()
-    else: sline = lines[0].rstrip().split(delimiter)
-    col_labels_list = np.array(sline,dtype=npstring)    
-    Ncols = len(col_labels_list)
-
-    # initialize some arrays
-    col_types = {}
-    col_labels = {}
-    data = []
-
-    # because all columns may not be the same type I'm reading them in like this
-    # instead of using np.loadtxt
-    first_data_line = True
-    for i in xrange(1,len(lines)):
-        if i < skiprows+1: continue
-        line = lines[i].rstrip()
-
-        # skip comment lines and blank lines
-        if len(line.split()) == 0 or line[0] == str(comments): continue
+    def display_column_info (verbose, data, usecols, col_labels, col_types):
+        # print out check stuff    
+    
+        if not verbose: return
         
-        # split the line by white space
-        if delimiter == ' ': sline = line.split()
-        else: sline = line.split(delimiter)
-        
-        # check the number of columns
-        if len(sline) != Ncols:
-            raise ValueError("The number of columns for the data ("+str(len(sline))+") does not equal the number of columns from the labels ("+str(Ncols)+")")
-
-        # if the first line of data get the column types
-        if first_data_line:
-            first_data_line = False
-
-            if use_columns is None: usecols = np.arange(len(sline))
-            else: usecols = np.array(use_columns,dtype=int)-1
-
-            # get the column types
-            for j in usecols: 
-                _the_col_name = ('col'+str(j)+' - '+col_labels_list[j])
-                # get the dictionary of column labels and types
-                col_labels[j] = col_labels_list[j]
-  
-                if force_dtype is not None:  which = str(force_dtype)
-                else: which = parse_for_type(sline[j],npstring)
-                col_types[j] = which
-
-        # create a list of the data rows as strings based on the columns you want
-        if force_dtype is not None: 
-            get_cols = np.array(sline,dtype=npstring)[usecols]
-            data.append(get_cols.astype(force_dtype))
-        else: data.append(np.array(sline,dtype=npstring)[usecols])
-
-    # transpose the data
-    data = np.array(data).T
-    datad = {}
-    # datad = np.rec.array([])
-
-    # convert to the data types you want
-    if force_dtype is None or give_dict:
-        outdata = []
-
-        for i in xrange(len(data)):
-            j = usecols[i]
-            col = data[i]
-
-            # try to convert using the parsed column type for column j
-            # if it doesn't work give an error
-            try: col_data = np.array(col,dtype=col_types[j])
-            except: 
-                # if this is giving you trouble try using a force_dtype = 'a100'
-                raise ValueError("Trouble converting type "+str(col_types[j])+" for column:"+str(tuple(col)))
-            outdata.append(col_data)
-
-            # create the dictionary output if desired
-            if give_dict:
-                ID = col_labels[j]
-                if ID in datad: 
-                    baseID = deepcopy(ID)
-                    num = 0
-                    ID = baseID+'_'+str(num)
-                while ID in datad:
-                    num+=1
-                    ID = baseID+'_'+str(num)
-        
-                col_labels[j] = ID
-                datad[ID] = col_data
-        data = outdata
-
-    # print out check stuff
-    if display_check:
         lines =  ['use column =>  ',
                   'index      =>  ',
                   'col label  =>  ',
@@ -354,7 +282,7 @@ def asciiread (filename, use_columns=None, comments='#', skiprows=0, delimiter='
                  str(col_types[j]),
                  str(data[i][0])]
             # find which one has the biggest length to use for formatting
-            N = np.max([len(v[0]),len(v[1]),len(v[2]),len(v[3])])
+            N = np.max((len(v[0]),len(v[1]),len(v[2]),len(v[3])))
             fr = '<'+str(N)
         
             # add the column to each line
@@ -368,13 +296,128 @@ def asciiread (filename, use_columns=None, comments='#', skiprows=0, delimiter='
 
         print " "
         print "======= CHECK COLUMNS ========> "
-        for line in lines:
-            print line
+        print "\n".join(lines)
         print '...'
 
-    # return desired object
-    if give_dict: return datad
-    else: return data
+    pass
+    #=====================================================#
+    # open file
+    f = open(filename,'r')
+    lines = f.readlines()
+    f.close()
+
+    # read first line to get the column labels
+    delimiter = str(delimiter)
+    
+    if delimiter == ' ': sline = lines[0].rstrip().split()
+    else: sline = lines[0].rstrip().split(delimiter)
+    
+    col_labels_list = np.array(sline,dtype=npstring)    
+    Ncols = len(col_labels_list)
+
+    # initialize some arrays
+    col_types = {}
+    col_labels = {}
+    data = []
+
+    # because all columns may not be the same type I'm reading them in like this
+    # instead of using np.loadtxt
+    first_data_line = True
+    for i in xrange(1,len(lines)):
+        if i < skiprows+1: continue
+        line = lines[i].rstrip().strip()
+        
+        # ignore to the right of comments
+        k = line.find(comments)
+        if k != -1: line = line[:k]
+        
+        # ignore blank lines
+        if len(line) == 0: continue
+
+        # split the line by white space
+        if delimiter == ' ': sline = line.split()
+        else: sline = line.split(delimiter)
+        
+        # check the number of columns
+        if len(sline) != Ncols: raise ValueError("The number of columns for the data ("+str(len(sline))+") does not equal the number of columns from the labels ("+str(Ncols)+")")
+
+        # if the first line of data get the column types
+        if first_data_line:
+            first_data_line = False
+
+            if usecols is None: usecols = np.arange(len(sline))
+            else: usecols = np.array(usecols,dtype=int)-1
+
+            #  get the column types
+            for j in usecols: 
+                _the_col_name = ('col'+str(j)+' - '+col_labels_list[j])
+                # get the dictionary of column labels and types
+                col_labels[j] = col_labels_list[j]
+  
+                if force_dtype is not None:  which = str(force_dtype)
+                else: which = parse_for_type(sline[j],npstring)
+                col_types[j] = which                
+
+        # create a list of the data rows as strings based on the columns you want
+        if force_dtype is not None: 
+            get_cols = np.array(sline,dtype=npstring)[usecols] # This is faster than a for loop over the usecols
+            data.append(get_cols.astype(force_dtype))
+        else: data.append(np.array(sline,dtype=npstring)[usecols])
+
+    # transpose the data so that I can access the columns easier
+    data = np.array(data).T
+
+    if force_dtype: 
+        display_column_info(verbose, data, usecols, col_labels, col_types)
+        return data
+     
+    # initialize variables for return_as 'dict' and 'record'
+    datad = {}
+    dtypes = {}
+
+    # convert to the desired data types
+    outdata = []
+
+    for i in xrange(len(data)):
+        j = usecols[i]
+        col = data[i]
+
+        # try to convert using the parsed column type for column j
+        # if it doesn't work give an error
+        try: col_data = np.array(col,dtype=col_types[j])
+        except: raise ValueError("Trouble converting type "+str(col_types[j])+" for column:"+str(tuple(col))) # if this is giving you trouble try using a force_dtype = 'a100'
+        
+        if return_as == 'list':  col_data = list(col_data)
+        
+        outdata.append(col_data)
+        
+        # create the dictionary output if desired
+        if return_as in ('dict','recarray'):
+            # columns ID
+            ID = col_labels[j]
+            baseID = deepcopy(ID)
+            num = 0
+
+            # find unique name 
+            while ID in datad:
+                ID = baseID+'_'+str(num)
+                num += 1
+                
+            if verbose and num != 0: print "HeadsUp: Column "+str(j)+" had a non-unique label '"+baseID+"' converted to '"+ID+"'"
+                
+            # reset the columns ID
+            col_labels[j] = ID
+            
+            datad[ID] = col_data
+            dtypes[ID] = (ID,col_types[j])
+
+    
+    # display column information and return data 
+    display_column_info(verbose, data, usecols, col_labels, col_types)
+    if   return_as == 'list': return list(outdata)
+    elif return_as == 'dict': return datad
+    elif return_as in 'record': return np.rec.array(datad.values(),titles=datad.keys()) #@UndefinedVariable
+    else: return outdata  # return as list of numpy arrays
                 
 pass
 ########################################################################################

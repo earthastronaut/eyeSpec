@@ -14,7 +14,7 @@ from dependencies import np, os, mpl, plt, scipy, pdb
 
 #==============================================================================#
 # import basic functions for eyeSpec
-from core import (eyeSpec_spec, convert_wavelength_units, inv_var_2_var, var_2_inv_var, verbose)
+from core import (eyeSpec_spec, convert_wavelength_units, inv_var_2_var, var_2_inv_var, verbose, asciiread)
 
 from IO import (wlsoln_coeff_from_header, 
                 readin, readin_txt, readin_spectre_files, readin_single_order_files, readin_makee, readin_apogee, readin_hst, readin_spec,
@@ -26,8 +26,10 @@ from plotting import plot_spec
 plotspec = plot_spec
  
 #==============================================================================# 
+
+# if wx
 # from interactive import *
-  
+
 from stellar_atmospheres import *
  
 #==============================================================================#
