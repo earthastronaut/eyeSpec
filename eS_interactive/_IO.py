@@ -1,14 +1,10 @@
-if __name__ == '__main__':
-    check = ['np','os','deepcopy','wx','math','FigureCanvas','NavigationToolbar2Wx','Figure','savefig']
-    for val in check:
-        if val not in globals(): raise StandardError("Not in globals:"+val)
-else:
-    from eyeSpec.dependencies import os, sys, time, deepcopy, pdb
-    from eyeSpec.dependencies import np, math
-    from eyeSpec.dependencies import plt, Figure, FormatStrFormatter, savefig
-    from eyeSpec.dependencies import wx, FigureCanvas, NavigationToolbar2Wx
 
- 
+################################################################################
+# Import modules
+import pdb #@UnusedImport
+from eyeSpec.dependencies import os, time, deepcopy, np, wx #@UnresolvedImport
+                                   
+pass 
 ################################################################################
 class AChoice:
     def __init__ (self,save_message,open_message,wildcard,defaultfile,save_method,open_method,progress_routine):

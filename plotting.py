@@ -1,3 +1,4 @@
+# Basic functions related to plotting
 
 import pdb #@UnusedImport
 from dependencies import np, deepcopy, plt, FormatStrFormatter
