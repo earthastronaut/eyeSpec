@@ -1,8 +1,8 @@
 # these are functions which are useful for dealing with MOOG, independent of the MOOG executable
 
 import pdb #@UnusedImport
-from eyeSpec.dependencies import np, os, time, deepcopy, np_recfunc, re #@UnresolvedImport
-from eyeSpec.core import yesno #@UnresolvedImport
+from ..dependencies import np, os, time, deepcopy, np_recfunc, re #@UnresolvedImport
+from ..core import yesno #@UnresolvedImport
 
 
 pass

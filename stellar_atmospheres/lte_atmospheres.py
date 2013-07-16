@@ -2,10 +2,10 @@
 
 #=============================================================================#
 # import modules
-from eyeSpec.dependencies import  np, os, subprocess #@UnresolvedImport
-from eyeSpec.core import get_filename #@UnresolvedImport
-from eyeSpec.stellar_atmospheres import executables #@UnresolvedImport
-from moog_functions import get_model_name, load_Batom
+from ..dependencies import  np, os, subprocess #@UnresolvedImport
+from ..core import get_filename #@UnresolvedImport
+from ..stellar_atmospheres import executables #@UnresolvedImport
+from .moog_functions import get_model_name, load_Batom
 
 pass
 #=============================================================================#

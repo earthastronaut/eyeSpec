@@ -1,10 +1,10 @@
 
 # Modules
 import pdb #@UnusedImport    
-from eyeSpec.stellar_atmospheres import executables #@UnresolvedImport
-from eyeSpec.dependencies import np, os, time, subprocess, threading #@UnresolvedImport
-from eyeSpec.core import get_bounds, get_filename #@UnresolvedImport
-from moog_functions import read_moog_linelist, write_moog_par, write_moog_lines_in, simple_llist_data, get_model_name
+from ..stellar_atmospheres import executables #@UnresolvedImport
+from ..dependencies import np, os, time, subprocess, threading #@UnresolvedImport
+from ..core import get_bounds, get_filename #@UnresolvedImport
+from .moog_functions import read_moog_linelist, write_moog_par, write_moog_lines_in, simple_llist_data, get_model_name
 
 pass
 #=============================================================================#
