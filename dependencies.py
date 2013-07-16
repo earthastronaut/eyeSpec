@@ -1,3 +1,4 @@
+#@PydevCodeAnalysisIgnore
 ## This imports modules eyeSpec is dependent on and performs some checks
 # PURPOSE:
 #   This file has all the dependencies used throughout eyeSpec
@@ -13,76 +14,79 @@
 #    5,  July 2013: Dylan Gregersen
 #                   added comments which the code analysis tool can understand
 
+
 #==============================================================================#
 # Modules
-import math #@UnusedImport
-import time #@UnusedImport
-import os #@UnusedImport
-import sys #@UnusedImport
-from copy import deepcopy #@UnusedImport
-import pdb #@UnusedImport
+import math 
+import os 
+import sys 
+# !! check the version of python to be < 3.0
+
+
+import time
+from copy import deepcopy
+import pdb 
 import operator
 iget = operator.itemgetter
-import threading #@UnusedImport
-import Queue #@UnusedImport
-import subprocess #@UnusedImport
-import re #@UnusedImport
+import threading 
+import Queue 
+import subprocess 
+import re 
+
+
+#==============================================================================#
+# astropy
+import astropy 
 
 #==============================================================================#
 # wxPython
 _found_wx = True
 
-try: import wxversion
-except: _found_wx = False
+try: 
+    import wxversion
+except: 
+    _found_wx = False
 
-if _found_wx: wxversion.ensureMinimal('2.8')
-# else: print "HeadsUp: Many of the programs written in eyeSpec rely on wxPython which did not import into your version of python (try >> import wx) many of the more advanced interactive data editing probably won't work"
+if _found_wx: 
+    wxversion.ensureMinimal('2.8')
 
 def _check_for_wx ():
-    if not _found_wx: raise ValueError("This package of eyeSpec relies on wxPython and wxversion which weren't found")
+    if not _found_wx: raise ImportError("This package of eyeSpec relies on wxPython and wxversion which weren't found")
 
 #==============================================================================#
 # pyfits
-try: import pyfits #@UnusedImport
-except: raise ValueError("module pyfits is required for reading in data")
+try: 
+    import pyfits 
+except ImportError: 
+    raise ImportError("module pyfits is required for reading in data")
 
 #==============================================================================#
 # pickle
-try: import cPickle as pickle #@UnusedImport
-except: raise ValueError("module cPickle is required")
+try: 
+    import cPickle as pickle 
+except ImportError:
+    raise ("module cPickle is required")
 
 #==============================================================================#
 # numpy
 import numpy as np
+nmajor, nminor = [int(n) for n in np.__version__.split('.')[:2]]
+if not (nmajor > 1 or (nmajor == 1 and nminor >= 6)):
+    raise ImportError(
+            'numpy 1.6 or later is required; you have {0}'.format(np.__version__))
 
-check_version = np.__version__.split(".")
-meets_min = True
-c1 = check_version[0]
-c2 = check_version[1]
-c3 = check_version[2]
-
-if c1 < 1: meets_min = False
-elif c1 == 1 and c2 < 6: meets_min = False
-elif c1 == 1 and c2 == 6 and c3 < 1: meets_min = False
-if not meets_min: print "Warning: Numpy version is less than minimum, may encounter errors. 1.6.1 > "+check_version
-
-import numpy.lib.recfunctions as np_recfunc #@UnusedImport
+import numpy.lib.recfunctions as np_recfunc 
 
 
 #==============================================================================#
 # scipy
-import scipy #@UnusedImport
-check_version = scipy.__version__.split(".")
-meets_min = True
-c1 = check_version[0]
-c2 = check_version[1]
-c3 = check_version[2]
+import scipy 
+nmajor, nminor = [int(n) for n in scipy.__version__.split('.')[:2]]
+if not (nmajor > 0 or (nmajor == 0 and nminor >= 10)):
+    raise ImportError(
+            'scipy 0.10 or later is required; you have {0}'.format(scipy.__version__))
 
-if c1 < 0: meets_min = False
-elif c1 == 0 and c2 < 10: meets_min = False
-elif c1 == 0 and c2 == 10 and c3 < 1: meets_min = False
-if not meets_min:  print "Warning: scipy version is less than minimum, may encounter errors. 0.10.1 > "+check_version
-from scipy import sparse #@UnusedImport
+from scipy import sparse 
 
 #==============================================================================#
 # Matplotlib
@@ -98,16 +102,16 @@ if _found_wx:
                 # this basically is an interactive way to output a list of x-points which are the overlaps for different orders, as well as delete parts of orders.
         matplotlib.rcParams['backend'] = 'WXAgg'
 
-from matplotlib.figure import Figure #@UnusedImport
-from matplotlib.widgets import Button #@UnusedImport
-import matplotlib.pylab as plt #@UnusedImport
+from matplotlib.figure import Figure 
+from matplotlib.widgets import Button 
+import matplotlib.pylab as plt 
 #from matplotlib.ticker import LinearLocator, MultipleLocator
-from matplotlib.pylab import FormatStrFormatter, savefig #@UnusedImport
-from matplotlib.path import Path #@UnusedImport
+from matplotlib.pylab import FormatStrFormatter, savefig 
+from matplotlib.path import Path 
 
 
 #==============================================================================#
 # resampling
-import resampling #@UnusedImport
+from .utils import resampling 
 
 
