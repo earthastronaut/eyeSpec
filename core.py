@@ -1,9 +1,10 @@
 # these are the basic functions and classes used by eyeSpec
 
 import pdb #@UnusedImport
-from dependencies import np, os, sys, time, deepcopy, pyfits, scipy
-from resampling import get_resampling_matrix, Gaussian_Density
+from .dependencies import np, os, sys, time, deepcopy, pyfits, scipy 
+from .utils.resampling import get_resampling_matrix, Gaussian_Density
     
+
 pass
 ########################################################################################
 # useful classes and functions
@@ -161,277 +162,7 @@ class query_fits_header:
 
     def __repr__ (self):
         return self.val
-
-def asciiread (filename, usecols=None, comments='#', skiprows=0, delimiter=' ',
-              return_as='arrays', verbose=True, 
-              npstring='a80', force_dtype=None):
-    """
-    This is designed for a ascii text file with the first row being the column names
-    
-    ==============   ===============================================================
-    Keyword          (type) Description
-    ==============   ===============================================================
-    filename         (str) gives the name of the ascii data file to read in
-                     file must have specific format, see NOTE0
-
-    usecols          (list) gives the columns starting at 1 which to read
-                     e.g. usecols = [1,4,5,7,10] 
-
-    comments         (str) gives the character/string which indicates a comment line
-
-    skiprows         (int) number of rows which will be skipped after the first one
-
-    delimiter        (str) if ' ' then it will split on white space. Otherwise it 
-                     will split on whatever string is given, e.g. delimiter=','
-
-    return_as        (string) return as options are:
-                     "arrays" return list of numpy arrays (default)
-                     "list" which will return a list of the data
-                     "dict" which will return a dictionary with columns as labels (see NOTE1)
-                     "record" will return as numpy record array with fields as 
-                              columns (see NOTE1)
-    
-    verbose    (bool) if True it will print out lines for you to check with
-
-    npstring         (str) gives the numpy string format which to use
-                     if the number of characters is too low it may cut off your 
-                     data at that character number
-
-    force_dtype      (numpy_dtype or None) if given it will force all the data to be of that type
-    ==============   ===============================================================
-
-    ----------------------------------------------------------------------------
-    NOTE0: file given by filename should match a format:
-    col1    col2     col3    col4  ....
-    # you can have comment lines which will be ignored
-    # the columns can be anything but must be seporated by white space
-    # it will skip rows which have just white space
-    star1     234      345    345
-
-    star2     234      112    123
-    star3     765      141    321
-    star4     567      311    213
-
-
-    
-    for a column to be considered a float the first row value must have a 
-    decimal, e.g. 999 is an integer column  99.9 is a float 
-    e.g. 0 is an integer column 0.0 is a float column
-
-    ----------------------------------------------------------------------------
-    NOTE1: when the function returns a numpy record array you can access based
-    on column using the example above
-    data['col1'] = [star1,star2,star3,star4]
-    data['col2'] = [  234,  234,  765,  567]
-
-
-
-example data to read:
-     skiprows1
-     2, the next line starts the ascii read
-     Starname   Star_num   FeAVG      er    TiI       er    TiII      er  
-     HD134439          0  -1.575  0.0500   0.205    0.14   0.335    0.14  
-     HD134440          1   -1.55  0.0500   0.214    0.12   0.224    0.06 # comment information
-    CD-292277          2   -1.91  0.0500   0.133    0.07   0.233    0.07  
-
-      LHS1429          3   -1.51  0.0500     0.3    0.12     0.4    0.16  
-# comment line
-      LTT6194          4    -2.7  0.1000  0.5073    0.13  0.5873    0.14 
-
-
-
-    """
-    comments = str(comments)
-    
-    def parse_for_type (val,npstring):
-        # val must start as string
-        # check for float
-        if val.find(".") != -1:
-            try: 
-                float(val)
-                return 'float'
-            except: pass
-
-        # check for int
-        try:
-            int(val)
-            return 'int'
-        except: pass
-                
-        # return string
-        return npstring
-
-    def display_column_info (verbose, data, usecols, col_labels, col_types):
-        # print out check stuff    
-    
-        if not verbose: return
-        
-        if len(data) == 0:
-            print "No data found"
-            return
-        
-        
-        lines =  ['use column =>  ',
-                  'index      =>  ',
-                  'col label  =>  ',
-                  'data type  =>  ',
-                  '---------      ',
-                  'data row0  =>  ']
-
-        for i in xrange(len(usecols)):
-            j = usecols[i]
-            # get the information for the column
-            v = [str(j+1),
-                 str(i),
-                 col_labels[j],
-                 str(col_types[j]),
-                 str(data[i][0])]
-            # find which one has the biggest length to use for formatting
-            N = np.max((len(v[0]),len(v[1]),len(v[2]),len(v[3])))
-            fr = '<'+str(N)
-        
-            # add the column to each line
-            csp = 4 # column space
-            lines[0] += format(v[0],fr)+" "*csp
-            lines[1] += format(v[1],fr)+" "*csp
-            lines[2] += format(v[2],fr)+" "*csp
-            lines[3] += format(v[3],fr)+" "*csp
-            lines[4] += '-'*N+" "*csp
-            lines[5] += format(v[4],fr)+" "*csp
-
-        print " "
-        print "======= CHECK COLUMNS ========> "
-        print "\n".join(lines)
-        print '...'
-
-    pass
-    #=====================================================#
-    # open file
-    f = open(filename,'r')
-    lines = f.readlines()
-    f.close()
-
-    # read first line to get the column labels
-    delimiter = str(delimiter)
-    
-    if delimiter == ' ': sline = lines[0].rstrip().split()
-    else: sline = lines[0].rstrip().split(delimiter)
-    
-    col_labels_list = np.array(sline,dtype=npstring)    
-    Ncols = len(col_labels_list)
-
-    # initialize some arrays
-    col_types = {}
-    col_labels = {}
-    data = []
-
-    # because all columns may not be the same type I'm reading them in like this
-    # instead of using np.loadtxt
-    first_data_line = True
-    for i in xrange(1,len(lines)):
-        if i < skiprows+1: continue
-        line = lines[i].rstrip().strip()
-        
-        # ignore to the right of comments
-        k = line.find(comments)
-        if k != -1: line = line[:k]
-        
-        # ignore blank lines
-        if len(line) == 0: continue
-
-        # split the line by white space
-        if delimiter == ' ': sline = line.split()
-        else: sline = line.split(delimiter)
-        
-        # check the number of columns
-        if len(sline) != Ncols: raise ValueError("The number of columns for the data ("+str(len(sline))+") does not equal the number of columns from the labels ("+str(Ncols)+")")
-
-        # if the first line of data get the column types
-        if first_data_line:
-            first_data_line = False
-            
-            # If there is no data 
-            if len(sline) == 0:
-                data = []
-                break
-            
-            if usecols is None: usecols = np.arange(len(sline))
-            else: usecols = np.array(usecols,dtype=int)-1
-
-            #  get the column types
-            for j in usecols: 
-                _the_col_name = ('col'+str(j)+' - '+col_labels_list[j])
-                # get the dictionary of column labels and types
-                col_labels[j] = col_labels_list[j]
-  
-                if force_dtype is not None:  which = str(force_dtype)
-                else: which = parse_for_type(sline[j],npstring)
-                col_types[j] = which                
-
-        # create a list of the data rows as strings based on the columns you want
-        if force_dtype is not None: 
-            get_cols = np.array(sline,dtype=npstring)[usecols] # This is faster than a for loop over the usecols
-            data.append(get_cols.astype(force_dtype))
-        else: data.append(np.array(sline,dtype=npstring)[usecols])
-
-    # transpose the data so that I can access the columns easier
-    data = np.array(data).T
-
-    if force_dtype: 
-        display_column_info(verbose, data, usecols, col_labels, col_types)
-        return data
-     
-    # initialize variables for return_as 'dict' and 'record'
-    datad = {}
-    dtypes = {}
-
-    # convert to the desired data types
-    outdata = []
-
-    for i in xrange(len(data)):
-        j = usecols[i]
-        col = data[i]
-
-        # try to convert using the parsed column type for column j
-        # if it doesn't work give an error
-        try: col_data = np.array(col,dtype=col_types[j])
-        except: raise ValueError("Trouble converting type "+str(col_types[j])+" for column:"+str(tuple(col))) # if this is giving you trouble try using a force_dtype = 'a100'
-        
-        if return_as == 'list':  col_data = list(col_data)
-        
-        outdata.append(col_data)
-        
-        # create the dictionary output if desired
-        if return_as in ('dict','record'):
-            # columns ID
-            ID = col_labels[j]
-            baseID = deepcopy(ID)
-            num = 0
-
-            # find unique name 
-            while ID in datad:
-                ID = baseID+'_'+str(num)
-                num += 1
-                
-            if verbose and num != 0: print "HeadsUp: Column "+str(j)+" had a non-unique label '"+baseID+"' converted to '"+ID+"'"
-                
-            # reset the columns ID
-            col_labels[j] = ID
-            
-            datad[ID] = col_data
-            dtypes[ID] = (ID,col_types[j])
-
-    
-    # display column information and return data 
-    display_column_info(verbose, data, usecols, col_labels, col_types)
-    if   return_as == 'list': return list(outdata)
-    elif return_as == 'dict': return datad
-    elif return_as in 'record': 
-        keys = datad.keys()
-        if len(keys) == 0: return np.rec.array([None]) #@UndefinedVariable
-        return np.rec.array(datad.values(),titles=keys) #@UndefinedVariable
-    else: return outdata  # return as list of numpy arrays
-                
+              
 pass
 ########################################################################################
 # various array manipulations
@@ -1350,6 +1081,184 @@ class EditSpectrumClassData:
             
             progressive_pt += len(wl)
 
+class _BaseSpectrum (object):
+    
+    
+    def __init__ (self,wavelengths,data,inv_var=None):
+        self._wl = wavelengths
+        self._data = data
+        self._inv_var = inv_var        
+
+    def __repr__ (self):
+        # return wavlengths,data,inv_var 
+        pass
+    
+    def __str__ (self):
+        # 
+        pass
+    
+    def __eq__ (self,spectrum):
+        if not isinstance(spectrum,_BaseSpectrum):
+            raise TypeError("Input spectrum is not a _BaseSpectrum subclass")
+        c1 = self.wavelengths == spectrum.wavelengths
+        c2 = self.data == spectrum.data
+        c3 = self.inv_var == spectrum.inv_var
+        return c1 and c2 and c3
+    
+    def __ne__ (self,spectrum):
+        return not self.__eq__(spectrum)
+    
+    def _inequality_error (self):
+        raise AttributeError("Spectrum class has inequality (<,>,<=,>=) attributes because they are ambiguous in this context")
+    
+    def __lt__ (self,spectrum): #@UnusedVariable
+        self._inequality_error()
+    
+    def __gt__ (self,spectrum): #@UnusedVariable
+        self._inequality_error()
+        
+    def __le__ (self,spectrum): #@UnusedVariable
+        self._inequality_error()
+        
+    def __ge__ (self,spectrum): #@UnusedVariable
+        self._inequality_error()
+    
+    @property
+    def bounds (self):
+        """ return the wlmin,wlmax,datamin,datamax """ 
+        pass
+    
+    @property
+    def data (self):
+        pass
+    
+    @property
+    def wavelengths (self):
+        pass
+    
+    @property
+    def inv_var (self):
+        pass
+
+    @property
+    def min (self):
+        """ return wlmin, datamin """
+        pass
+    
+    @property
+    def max (self):
+        """ return wlmax, datamax """
+        pass
+
+    def copy (self):
+        """ returns a copy of itself """
+        pass
+
+    def __getstate__ (self):
+        """ used for pickle """
+        
+    def __setstate__ (self,state_dict):
+        pass
+
+class _BaseEditableSpectrum (_BaseSpectrum):
+    
+    def __init__ (self,wavelengths,data,inv_var=None):
+        super(_BaseEditableSpectrum,self).__init__(wavelengths,data,inv_var)
+        pass
+
+    def rv_shift (self,rv):
+        pass
+        
+    def scale (self,wl_scaler=1.0,data_scaler=1.0):
+        pass
+    
+    def translate (self,wl_shift=0.0,data_shift=0.0):
+        pass
+    
+    def crop (self,include=False,nan_value=np.nan,**kwargs):
+        """ 
+        Crop the data
+        **kwargs ==> the bounds of the crop or a mask
+
+              crop_mask = None,
+              index_bounds = None,
+              wavelength_bounds = None,
+              data_bounds = None,
+              box_bounds = None,
+              # short cut versions for cropping
+              cm = None,
+              ib = None,
+              wb = None,
+              db = None,
+              bb = None):        
+        """
+        pass
+
+class Spectrum (_BaseEditableSpectrum):
+    
+    def __init__ (self,wavelengths,data,inv_var=None):  
+        super(Spectrum,self).__init__(wavelengths,data,inv_var)
+        
+    def get_state (self):
+        pass
+    
+    def set_state (self,prevstate):
+        pass
+    
+    def save (self,filename,file_format='ascii',**kwargs):
+        print file_format,filename,kwargs
+        pass
+    
+    def _save_txt (self,filename):
+        pass
+    
+    def _save_fits (self,filename):
+        pass
+    
+    # def open (self,filename,file_format='ascii',**kwargs):
+  
+        
+class _MultiOrderSpectrum (object):
+    
+    def __init__ (self,wavelengths,data,inv_var=None):
+        pass
+    
+    def __getitem__ (self,order):
+        """ return desired order as a Spectrum object """
+
+    @property
+    def data (self):
+        """ returns data as a ndarray """ 
+        pass
+    
+    @property
+    def wavelengths (self,order=None):
+        """ returns data as a ndarray """ 
+        pass
+
+
+class MultiOrderSpectrum (object):
+    
+    def __init__ (self,spectrum_list):
+        """ takes a list of spectrum objects and then uses _MultiOrderSpectrum"""
+        pass
+    
+    def __getitem__ (self,order):
+        """ return desired order as a Spectrum object """
+
+    @property
+    def data (self):
+        """ returns data as a ndarray """ 
+        pass
+    
+    @property
+    def wavelengths (self,order=None):
+        """ returns data as a ndarray """ 
+        pass
+
+
+
+      
 class eyeSpec_spec:
     """
     -----------------------------------------------------------------------
