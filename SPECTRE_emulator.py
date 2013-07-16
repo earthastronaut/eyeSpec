@@ -3,31 +3,10 @@
 # from eyeSpec.sp import *    <== would act like spectre only with rd() instead of rd
 
 #from Readin import readin
-if __name__ != '__main__':
-    from eyeSpec.base_IO import readin
-    from eyeSpec.app_ctm_editor import edit_ctm
-    from eyeSpec.dependencies import np, os, sys, time, iget, deepcopy, pdb
 
 
-# def rdmult()
-# prompts for a list of files and stores them
+data_arrays = {}
 
-def _check_for_xyz (which):
-    if which == 'x':
-        if 'x' not in globals(): return False
-        if x.__class__.__name__ != 'eyeSpec_spec': return False
-        return True
-    elif which == 'y':
-        if 'y' not in globals(): return False
-        if y.__class__.__name__ != 'eyeSpec_spec': return False
-        return True
-    elif which == 'z':
-        if 'z' not in globals(): return False
-        if z.__class__.__name__ != 'eyeSpec_spec': return False
-        return True
-    else: 
-        print "Please give 'x','y', or 'z'" 
-        return False
 
 def rd ():
     """
