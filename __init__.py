@@ -30,7 +30,7 @@ plotspec = plot_spec
 if _found_wx: from eS_interactive import *
 
 from stellar_atmospheres import *
- 
+  
 #==============================================================================#
 # import SPECTRE emulator
 #import SPECTRE_emulator as SP
@@ -47,11 +47,12 @@ def _print_eyeSpec ():
     print "0eoo  0oo  0eeo  0eo  0eoo  0oo      0eoo       0eo   0eo 0eoo  0oo  0eo    0o"
     print "0eoo  0eo    0eeoo    0eoo  0eo        0eoo     0eo   0eo 0eoo  0eo  0eo"
     print " 0eeoee       0eeo     0eeoee    eeeoo   0eeoo  0eeeeee    0eeoee    0eo"
-    print "  0ee   oo     0eo      0ee   oo 0eeo    00ooo  0eo        0ee   oo 0eo    oo"
-    print "   0eeeoo      0eo       0eeeoo   00eoeee0eooo  0eo         0eeeoo   0eoooooo"
+    print "  0ee   oo     0eo      0ee   oo 0eeo    00ooo  0eo         0ee   oo 0eo    oo"
+    print "   0eeeoo      0eo       0eeeoo   00eoeee0eooo  0eo          0eeeoo   0eoooooo"
     print "    00ee      0eeoo       00ee     0000eeeoo    0eoo          00ee     00eeeo"
     print "================================================================================"
     print "================================================================================"
+    
     
 if Params['goofy_version']: 
     _print_eyeSpec()
