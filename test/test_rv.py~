@@ -1,2 +1,0 @@
-execfile("main.py")
-execfile("../app_edit_rv.py")

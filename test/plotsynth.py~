@@ -1,5 +1,0 @@
-execfile("test_rv.py")
-
-model = [5000,4.00,-2.0,1.0]
-
-create_kurucz_atmo_model(*model)
