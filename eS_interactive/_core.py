@@ -6,13 +6,13 @@
 # Import Modules
 
 import pdb #@UnusedImport
-from eyeSpec.plotting import figure_adjust_borders, alt_order_colors, data_line_scatter #@UnresolvedImport
-from eyeSpec.core import Timer #@UnresolvedImport
-from eyeSpec.IO import save, readin_spec #@UnresolvedImport
-from eyeSpec.dependencies import (os, sys, time, deepcopy, np, math, pickle, np_vstack_delete, #@UnresolvedImport
-                                  plt, Figure, FormatStrFormatter, threading, Queue, NewEvent, wx, FigureCanvas, NavigationToolbar2Wx) #@UnresolvedImport
-from eyeSpec import __path__ as path_2_eyeSpec #@UnresolvedImport
-from _IO import SaveOpenChoices, InputOutput
+from ..plotting import figure_adjust_borders, alt_order_colors, data_line_scatter #@UnresolvedImport
+from ..core import Timer #@UnresolvedImport
+from ..IO import save, readin_spec #@UnresolvedImport
+from ..dependencies import (os, sys, time, deepcopy, np, math, pickle, np_vstack_delete, #@UnresolvedImport
+                            plt, Figure, FormatStrFormatter, threading, Queue, NewEvent, wx, FigureCanvas, NavigationToolbar2Wx) #@UnresolvedImport
+from .. import __path__ as path_2_eyeSpec #@UnresolvedImport
+from ._io import SaveOpenChoices, InputOutput
 
 pass
 ################################################################################

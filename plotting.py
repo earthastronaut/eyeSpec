@@ -1,8 +1,8 @@
 # Basic functions related to plotting
 
 import pdb #@UnusedImport
-from dependencies import np, deepcopy, plt, FormatStrFormatter
-from core import inv_var_2_var, query_fits_header
+from .dependencies import np, deepcopy, plt, FormatStrFormatter
+from .core import inv_var_2_var, query_fits_header
 
 pass
 ########################################################################################

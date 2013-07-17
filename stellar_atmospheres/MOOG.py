@@ -1,9 +1,9 @@
 
 # Modules
 import pdb #@UnusedImport    
-from ..stellar_atmospheres import executables #@UnresolvedImport
-from ..dependencies import np, os, time, subprocess, threading #@UnresolvedImport
-from ..core import get_bounds, get_filename #@UnresolvedImport
+from ..stellar_atmospheres import executables 
+from ..dependencies import np, os, time, subprocess, threading
+from ..core import get_bounds, get_filename 
 from .moog_functions import read_moog_linelist, write_moog_par, write_moog_lines_in, simple_llist_data, get_model_name
 
 pass
@@ -611,7 +611,7 @@ MODIFICATION HISTORY:
     13, Jun 2013: Dylan Gregersen
 
     """
-    from lte_atmospheres import run_create_atmo_model
+    from .lte_atmospheres import run_create_atmo_model #@UnresolvedImport
 
     check_moog07(True)    
     # get the input filename
