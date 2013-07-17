@@ -37,6 +37,9 @@ import re
 #==============================================================================#
 # astropy
 import astropy 
+from astropy.io import fits
+from astropy import units
+from astropy import constants
 
 #==============================================================================#
 # wxPython
@@ -51,14 +54,8 @@ if _found_wx:
     wxversion.ensureMinimal('2.8')
 
 def _check_for_wx ():
-    if not _found_wx: raise ImportError("This package of eyeSpec relies on wxPython and wxversion which weren't found")
-
-#==============================================================================#
-# pyfits
-try: 
-    import pyfits 
-except ImportError: 
-    raise ImportError("module pyfits is required for reading in data")
+    if not _found_wx: 
+        raise ImportError("This package of eyeSpec relies on wxPython and wxversion which weren't found")
 
 #==============================================================================#
 # pickle
