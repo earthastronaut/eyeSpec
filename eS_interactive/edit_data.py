@@ -1,23 +1,10 @@
-
-if __name__ != '__main__':
-    from eyeSpec.interactive_IO import ProgressSave, InputOutput
-    from eyeSpec.interactive_classes import (EventConnections, Cursor, History, KeyboardConfiguration,
-                                             ID_BEGIN, sudo_event, eyeSpecTextRedirectPanel, SysOutListener,
-                                             DataSelectionBox, OrderSelectionBox, PlotData, eyeSpecBaseDataPlot,
-                                             eyeSpecBaseMainPanel,eyeSpecBaseDataPanel,
-                                             eyeSpecBaseFrame, eyeSpecBaseApp, eyeSpecBaseEventManager)
-                                             
-    from eyeSpec.extended_IO import save_spec, load_spec
-    from eyeSpec.base_functions import find_overlap_pts, alt_order_colors, figure_adjust_borders
-
-    # now import basic dependencies from other modules
-    from eyeSpec.dependencies import (np, os, sys, time, iget, deepcopy, pdb,
-                                      scipy, math,
-                                      plt, FormatStrFormatter, savefig,
-                                      pyfits, pickle,
-                                      wx, FigureCanvas, NavigationToolbar2Wx, Figure, Button, Path, threading, Queue)
-
-
+from ._core import ( History, SysOutListener,
+                     DataSelectionBox, OrderSelectionBox, eyeSpecBaseDataPlot,
+                     eyeSpecBaseMainPanel,eyeSpecBaseDataPanel,
+                     eyeSpecBaseFrame, eyeSpecBaseApp, eyeSpecBaseEventManager)                                     
+import pdb #@UnusedImport
+from ..dependencies import (np, os, sys, time, deepcopy, math)
+from ..io import save_txt
 
 ################################################################################
 ################################################################################
@@ -63,7 +50,7 @@ class EditDataPanel (eyeSpecBaseDataPanel):
         
     def DataUpdateStatusBar (self,event):
         scale_txt = "Auto Scale "
-        scale_opt,info = self.edManager.ide.dp.get_auto_scaling_opt()
+        scale_opt,_ = self.edManager.ide.dp.get_auto_scaling_opt()
         if scale_opt == 0: scale_txt += 'X,Y'
         elif scale_opt == 1: scale_txt += 'X'
         elif scale_opt == 2: scale_txt += 'Y'
@@ -80,8 +67,7 @@ class EditDataPanel (eyeSpecBaseDataPanel):
         self.UpdateStatusBar(event,st)
         
     def OnStart (self, event):
-        #super(eyeSpecBaseDataPanel,self).OnStart(event)
-        # !! couldn't get super working???
+        super(EditDataPanel,self).OnStart(event)
         
         del self.canvas.callbacks.callbacks['key_press_event'][self._onkeystart_cid]
         del self.canvas.callbacks.callbacks['button_press_event'][self._onbutstart_cid]
@@ -105,7 +91,6 @@ class EditDataPanel (eyeSpecBaseDataPanel):
         xmin, xmax = np.min(first_order), np.max(first_order)
         ran = (xmax - xmin)
         self.ax.set_xlim(xmin + .1 * ran, xmax + .1 * ran)  # semi-arbitrary starting point
-        evt = sudo_event()
 
         self.edManager.connect()
         self.edManager.update()
@@ -216,7 +201,7 @@ class InteractiveDataEditor:
         return ['one line only']
 
     def _apply_params_data_edit (self, lines):
-        print "!! need to update"
+        print "!! need to update", lines
         self.update()
 
 
@@ -241,7 +226,7 @@ class InteractiveDataEditor:
         if self._ordi is None: self._ordi = self.get_prev_order_index()
         self.select_order_by_index(self._ordi)
 
-    def _select_order_by_plot_divisions (self, xpt, ypt):
+    def _select_order_by_plot_divisions (self, xpt):
         
         xmin, xmax, ymin, ymax = self.ax.axis()
      
@@ -267,7 +252,6 @@ class InteractiveDataEditor:
         bins = np.linspace(xmin, xmax, len(ind) + 1)
         ordi = None
         for i in range(len(bins) - 1):
-            val = bins[i]
             if xpt >= bins[i]:
                 ordi = int(ind[i])
         return ordi
@@ -323,23 +307,20 @@ class InteractiveDataEditor:
                 return
 
         #====== Find the next order which hasn't been deleted
-        found_non_deleted = fnd = False
         given_direction = (direction in ['-','+'])
-        if not given_direction: direction == '+'
+        if not given_direction: direction = '+'
         
         # look through in one direction starting at index point
-        fnd, i = self._find_non_deleted_orders(index, direction) 
-        if not fnd:
+        found_non_deleted, _i = self._find_non_deleted_orders(index, direction) 
+        if not found_non_deleted:
             other_direct = '-'
             if direction == '-': other_direct = '+' 
-            fnd, i = self._find_non_deleted_orders(index, other_direct)
-            if not fnd: raise StandardError("Whoops, looks like all orders were deleted!")   
+            found_non_deleted, _i = self._find_non_deleted_orders(index, other_direct)
+            if not found_non_deleted: raise StandardError("Whoops, looks like all orders were deleted!")   
              
         if given_direction: self._select_order(index,direction)            
         else: self._select_order(index)
-        
-
-             
+                  
     def select_order_by_xy (self, xypts, also_by_divisions=False):
         xpt, ypt = xypts
         if xpt is np.NaN or ypt is np.NaN:
@@ -348,7 +329,7 @@ class InteractiveDataEditor:
             return False
         
         # choose based on distance to point
-        min_dist, index = self._min_dist_to_data_xy(xpt, ypt)
+        _min_dist, index = self._min_dist_to_data_xy(xpt, ypt)
         
         if index is None:
             # if no points are close enough
@@ -398,7 +379,6 @@ class InteractiveDataEditor:
                 self.selection_box.create_from_left(True)
   
             self.update_order_box()
-
 
     def _find_non_deleted_orders (self, index, direction):
         if direction not in ['-', '+']: return (False,0)
@@ -464,8 +444,7 @@ class InteractiveDataEditor:
                 
         index = self._ordi + inc
         self.select_order_by_index(index, direction, True)
-
-   
+  
     def btn_press_selection_box (self, event):
         """ for data editor """
         # returns True if something changed
@@ -661,7 +640,6 @@ class InteractiveDataEditor:
         self.order_box.update_box(pltdata, self._ordi)
 
     def update (self):   
-        changed = False                 
         self.spec_obj = self.dataplot.spec_obj
         
         c1 = self.update_highlight_selected_points()
@@ -697,7 +675,7 @@ class EditDataFrame (eyeSpecBaseFrame):
         print "Closing: If this hangs up look at the file TMP_WHAT_JUST_HAPPENED.txt"
         _app_edit_data_what_happened()
         spec_obj = self.panel.datapanel.edManager.ide.dp.spec_obj
-        save_spec(spec_obj,filename='TMP_OBJ_SAVE_EDIT.pkl',clobber=True)
+        save_txt(spec_obj,filename='TMP_OBJ_SAVE_EDIT.pkl',clobber=True)
         time.sleep(.5)        
 
 class EditDataManager (eyeSpecBaseEventManager):
@@ -810,9 +788,7 @@ class EditDataManager (eyeSpecBaseEventManager):
         self._dragging = False
         self._clicked = True
         
-        changed = False      
-        changed = self.ide.btn_press_selection_box(event)
-        if changed: self.update()
+        if self.ide.btn_press_selection_box(event): self.update()
         
     def motion_notify_callback (self, event):
         """ Data Edit Manager  """
@@ -824,11 +800,8 @@ class EditDataManager (eyeSpecBaseEventManager):
         
         self._dragging = True
         self._clicked = False
-        
-        changed = False
-        changed = self.ide.mot_notify_selection_box(event)
-        
-        if changed: self.update()
+                
+        if self.ide.mot_notify_selection_box(event): self.update()
                   
     def button_release_callback (self, event):
         """ Data Edit Manager  """
@@ -893,8 +866,6 @@ def edit_data (spec, clean_up=True):
     print "-"*60
     print "-"*20+format("Edit Data Complete",'^26')+"-"*20
 
-    output_spec = None
-
     # load data after app.MainLoop() has exited
     if os.path.exists('TMP_OBJ_SAVE_EDIT.pkl'): pass
         #backup_spec = load_spec('TMP_OBJ_SAVE_EDIT.pkl')
@@ -904,5 +875,6 @@ def edit_data (spec, clean_up=True):
         if os.path.exists('TMP_WHAT_JUST_HAPPENED.txt'): os.system('rm TMP_WHAT_JUST_HAPPENED.txt')
         if os.path.exists('TMP_OBJ_SAVE_ORIG.pkl'): os.system('rm TMP_OBJ_SAVE_ORIG.pkl')
         if os.path.exists('TMP_OBJ_SAVE_EDIT.pkl'): os.system('rm TMP_OBJ_SAVE_EDIT.pkl')
+        
     return final_spec
     

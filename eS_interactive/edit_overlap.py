@@ -1,16 +1,12 @@
-if __name__ != '__main__':
-    from eyeSpec import Params 
-    from eyeSpec.interactive_IO import ProgressSave, InputOutput
-    from eyeSpec.interactive_classes import EventConnections, Cursor, History, KeyboardConfiguration
-    from eyeSpec.extended_IO import save_spec, load_spec
-    from eyeSpec.base_functions import find_overlap_pts, alt_order_colors
-    from eyeSpec.app_edit_data import InteractiveDataEditor, CanvasFrame
-    # now import basic dependencies from other modules
-    from eyeSpec.dependencies import np, os, sys, time, iget, deepcopy, pdb
-    from eyeSpec.dependencies import scipy, math
-    from eyeSpec.dependencies import plt, FormatStrFormatter, savefig
-    from eyeSpec.dependencies import pyfits, pickle
-    from eyeSpec.dependencies import wx, FigureCanvas, NavigationToolbar2Wx, Figure, Button, Path    
+from ..  import Params 
+from ._core import History
+from eyeSpec.app_edit_data import InteractiveDataEditor, CanvasFrame
+# now import basic dependencies from other modules
+from eyeSpec.dependencies import np, os, sys, time, iget, deepcopy, pdb
+from eyeSpec.dependencies import scipy, math
+from eyeSpec.dependencies import plt, FormatStrFormatter, savefig
+from eyeSpec.dependencies import pyfits, pickle
+from eyeSpec.dependencies import wx, FigureCanvas, NavigationToolbar2Wx, Figure, Button, Path    
 
 
 #!!  if I want to add some Icons here are defaults

@@ -1,15 +1,11 @@
-if __name__ != '__main__':
-    from eyeSpec import __path__ as path_2_eyeSpec
-    from eyeSpec.interactive_IO import ProgressSave, InputOutput
-    from eyeSpec.interactive_classes import (EventConnections, History, KeyboardConfiguration, RandomPanel, SysOutListener, State, EditSubplotDialog, eyeSpecBaseDataPanel,
-                                            eyeSpecBaseEventManager, eyeSpecBaseApp, eyeSpecBaseFrame, eyeSpecBaseFrame,eyeSpecBaseMainPanel, eyeSpecBaseLineEditor, eyeSpecBaseDataPlot)
-    from eyeSpec.extended_IO    import save_spec, load_spec
-    from eyeSpec.base_functions import find_overlap_pts,alt_order_colors
-    from eyeSpec.app_edit_data  import InteractiveDataEditor
-    from eyeSpec.dependencies   import (np, os, sys, time, iget, deepcopy, pdb, scipy, math,
-                                        plt, FormatStrFormatter, savefig,
-                                        wx, FigureCanvas, NavigationToolbar2Wx, Figure, Button, Path)
-      
+from .. import __path__ as path_2_eyeSpec
+from ._core import (RandomPanel, SysOutListener, State, EditSubplotDialog, eyeSpecBaseDataPanel, HistoryAdvanced,
+                    eyeSpecBaseEventManager, eyeSpecBaseApp, eyeSpecBaseFrame,eyeSpecBaseMainPanel, eyeSpecBaseLineEditor, eyeSpecBaseDataPlot)
+import pdb #@UnusedImport
+from ..dependencies   import (np, os, sys, time, iget, deepcopy, wx, Path)
+  
+History = HistoryAdvanced
+  
 if wx is None:  raise StandardError("This will not work without wxpython")
 
 # this takes a list of known wavelengths in stationary frame, plots the data against those, then allows for a simple click to radial velocity shift the data to match that point.
@@ -50,56 +46,6 @@ def _rv_what_happened ():
 
     f.close()
     
-class OPlotSun:
-    def __init__ (self,parent,data_path,xbounds,**mpl_kwargs):
-        # where does the data live?
-        self.data_path = data_path
-        #
-        self.wl = np.empty(1)
-        self.data = np.empty(1)
-        self.spectra, = self.parent.ax.plot(wl,data,**mpl_kwargs)
-        pass
-
-    def plot_range (self,xbounds):
-        # check to see if self.spectra.get_xdata() is in xbounds
-        # if not in bounds, go looking for next range
-        # if found next range then read in and append
-        pass
-
-    def set_visible (self,truth):
-        pass
-    
-    def get_visible (self):
-        pass
-
-    def toggle_visible (self):
-        pass
-
-class OplotArcturus:
-    def __init__ (self,parent,data_path,xbounds,**mpl_kwargs):
-        # where does the data live?
-        self.data_path = data_path
-        #
-        self.wl = np.empty(1)
-        self.data = np.empty(1)
-        self.spectra, = self.parent.ax.plot(wl,data,**mpl_kwargs)
-        pass
-
-    def plot_range (self,xbounds):
-        # check to see if self.spectra.get_xdata() is in xbounds
-        # if not in bounds, go looking for next range
-        # if found next range then read in and append
-        pass
-
-    def set_visible (self,truth):
-        pass
-    
-    def get_visible (self):
-        pass
-
-    def toggle_visible (self):
-        pass
-
 class LineInfo:
     def __init__ (self):
 
@@ -167,8 +113,8 @@ class LineInfo:
             if line[:1] != '#': output.append([float(line[:12]),line[12:].strip()])
         return output
 
-    def annotate_on_plot (self,ax,xrange,which_lines='all',**mpl_kwargs):
-        if len(xrange) != 2: return
+    def annotate_on_plot (self,ax,xbounds,which_lines='all',**mpl_kwargs):
+        if len(xbounds) != 2: return
         self.ax = ax
         self.annotations = []
         
@@ -188,7 +134,7 @@ class LineInfo:
 
         rolling_i = 0
         for i in range(len(info_lines)):
-            if np.min(xrange) < info_lines[i][0] < np.max(xrange):
+            if np.min(xbounds) < info_lines[i][0] < np.max(xbounds):
                 if rolling_i==0: 
                     label_hi=text_y
                     rolling_i += 1
@@ -216,45 +162,9 @@ class LineInfo:
 
     def on_update (self):
         for i in range(len(self.annotations)):
+            print(i)
             # adjust the y and x offsets
             pass
-
-class OplotStandards (EventConnections):
-
-    def __init__ (self,parent):
-        self.parent = parent
-
-
-        self.STDspectra = [] # spectra,lines,
-
-
-        #---------------------------------------------------------#
-        # these attributes are standard to my editor classes
-        # keyboard configuration
-        self.key_cfg = KeyboardConfiguration()
-        self.keyboard_cfg = {'display':['1'],
-                             'info':'',
-                             '1':'Toggle on/off solar data'}
-                             
-        self.init_connection_callbacks(self)
-
-    def key_press_callback (self,event):
-        # restore to normal
-        # shift up
-        # shift down
-        # add constant
-        # mult constant
-
-        # 1 toggle solar
-        # 2 toggle arcturus
-        # 3 ...
-
-        pass
-
-
-
-    def update_callback (self,event):
-        """  Here I want to have it check to see if the solar data is visible and if so does it fall in the correct range"""
 
 pass
 ###############################################################################
@@ -397,7 +307,6 @@ class RVRecord:
         self._reci = len(self._record_rv)-1
         return self._reci
  
- 
 class RVLineLists:
     """
 This holds the linelist information if you want to change
@@ -407,6 +316,7 @@ This holds the linelist information if you want to change
     
     def __init__ (self,custom_linelist=None):
         
+        # TODO (Dylan): allow for custom linelist input
         self._llists = {}
         
         self._load_sparse_linelist()
@@ -492,7 +402,7 @@ class InteractiveRVEditor:
     c = 299792.4580
     def __init__ (self,ax,spec_obj,rv_record,linelist=None,history=None):
         
-        if history is None: self.history = HistoryAdvanced()
+        if history is None: self.history = History()
         else: self.history = history
         
         self.ax = ax
@@ -552,7 +462,7 @@ class InteractiveRVEditor:
         return curstate
               
     def change_line_list (self,which):
-        if which not in self._linelists.get_choices(): raise ValueError("Which must be one of: "+", ".join(choices))
+        if which not in self._linelists.get_choices(): raise ValueError("Which must be one of: "+", ".join(self._linelists.get_choices()))
         lines, info = self._linelists.get_lines_info(which)
         self.ile.change_linelist(lines,info)
         
@@ -683,7 +593,7 @@ class InteractiveRVEditor:
     def scan_through_lines (self,direction):
         # looks for lines within the data
         dmin,dmax = self.dp.spec_obj.get_wlbounds()
-        buffer = 10
+        range_buffer = 10
         
         lmin,lmax = self.ile.plotlines.get_bounds()
                 
@@ -697,7 +607,7 @@ class InteractiveRVEditor:
             if xpt is None: continue
             
             # check if xpt is in a data range
-            if dmin-buffer <= xpt <= dmax+buffer: break 
+            if dmin-range_buffer <= xpt <= dmax+range_buffer: break 
         
             # if you reach the end of the line list
             if xpt in [lmin,lmax]:    
@@ -870,7 +780,6 @@ class InteractiveRVEditor:
         return True
 
     def update (self):
-        c1,c2 = False,False    
         new_txt = 'Current Radial Velocity: '+format(self._sum_rv,'5.3f')
         if new_txt == self.rv_text.get_text(): c1 = False
         else:
@@ -987,7 +896,7 @@ class EditRVManager (eyeSpecBaseEventManager):
         self._dragging = False
         if self.rve.btn_press_rv(event): self.update()
 
-    def motion_notify_callback (self,event):
+    def motion_notify_callback (self,event): #@UnusedVariable
         self._dragging = True
         if self.rve.dp.is_toolbar_button_on(): return
         if self.rve.dp.bounds_changed(True): self.update()
@@ -1022,7 +931,7 @@ class EditRVPanel (eyeSpecBaseDataPanel):
         
     def RVUpdateStatusBar (self,event):
         scale_txt = "Auto Scale "
-        scale_opt,info = self.rvManager.rve.dp.get_auto_scaling_opt()
+        scale_opt,_info = self.rvManager.rve.dp.get_auto_scaling_opt()
         if scale_opt == 0: scale_txt += 'X,Y'
         elif scale_opt == 1: scale_txt += 'X'
         elif scale_opt == 2: scale_txt += 'Y'
@@ -1036,9 +945,7 @@ class EditRVPanel (eyeSpecBaseDataPanel):
         self.UpdateStatusBar(event,st)        
 
     def OnStart (self,event):
-        
-        del self.canvas.callbacks.callbacks['key_press_event'][self._onkeystart_cid]
-        del self.canvas.callbacks.callbacks['button_press_event'][self._onbutstart_cid]
+        super(EditRVPanel,self).OnStart(event)
         
         print ""
         print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -1068,9 +975,6 @@ class EditRVMainPanel (eyeSpecBaseMainPanel):
          
         self.randpanel = RandomPanel(self.Split1,self.pframe)
         self.split_top_left(self.rvpanel,self.randpanel)
-        
-
-
 
 class EditRVFrame (eyeSpecBaseFrame):
     def __init__ (self,parent_window,inputs):
@@ -1107,9 +1011,17 @@ pass
 
 def edit_rv (spec_obj,linelist=None,clean_up=True):
     """
-
-PURPOSE:
-    This takes an eyeSpec spectrum object and allows for visual radial velocity setting
+    This takes an eyeSpec spectrum object and allows for visual radial velocity determination
+    
+    
+    This function creates an interactive window which displays the data and lines from
+    a linelist. You scroll through the lines and then adjust the data to match the 
+    given absorption features. For example, you will have a H line at 6562.2, you 
+    identify the same feature in the spectra and then click at the core of that line,
+    then the data shifts to match the linelist.
+   
+    
+   
    
 CATEGORY:
     Spectral Reductions
@@ -1156,7 +1068,8 @@ MODIFICATION HISTORY:
     if spec_obj.__class__.__name__ != 'eyeSpec_spec': raise ValueError("spec_obj MUST BE OF CLASS eyeSpec_spec")
         
     edit_obj = spec_obj.copy()
-    save_spec(spec_obj,filename='TMP_OBJ_SAVE_ORIG',clobber=True)
+    # save(spec_obj,filename='TMP_OBJ_SAVE_ORIG',clobber=True)
+    # TODO : save out the file
     
     # set_title = 'Set Radial Velocity for: '+os.path.basename(edit_obj.filename)
 
@@ -1169,7 +1082,7 @@ MODIFICATION HISTORY:
     try: app.MainLoop()
     finally:
         app.ExitMainLoop()
-        final_spec,rv_record = app.Finish()
+        _final_spec,rv_record = app.Finish()
         del app
 
 

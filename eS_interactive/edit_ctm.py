@@ -1,16 +1,11 @@
 # classes and functions associated with normalizing the spectrum data
 
-if __name__ != '__main__':
-    from eyeSpec.interactive_IO import ProgressSave, InputOutput
-    from eyeSpec.interactive_classes import (EventConnections, Cursor, History, KeyboardConfiguration, SysOutListener, RandomPanel,
-                                             eyeSpecBaseEventManager, eyeSpecBaseDataPanel, eyeSpecBaseMainPanel, eyeSpecBaseFrame, eyeSpecBaseDataPlot)
-    from eyeSpec.IO import save_spec, load_spec
-    from eyeSpec.base_functions import find_overlap_pts, alt_order_colors
-    from eyeSpec import __path__ as path_2_eyeSpec
-    # now import basic dependencies from other modules
-    from eyeSpec.dependencies import (np, os, sys, time, iget, deepcopy, pdb,
-                                      scipy, math, plt, FormatStrFormatter, savefig,
-                                      wx, FigureCanvas, NavigationToolbar2Wx, Figure, Button, Path, resampling)
+from ._core import (History, KeyboardConfiguration, SysOutListener, RandomPanel,
+                    eyeSpecBaseEventManager, eyeSpecBaseDataPanel, eyeSpecBaseMainPanel, eyeSpecBaseFrame, eyeSpecBaseDataPlot)
+from .. import __path__ as path_2_eyeSpec
+# now import basic dependencies from other modules
+from ..dependencies import (np, os, sys, time, iget, deepcopy,
+                            scipy, wx, resampling)
 
 
 def _ctm_what_happened ():
