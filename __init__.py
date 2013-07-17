@@ -10,26 +10,24 @@ Params = {'verbose_level':0,
 #==============================================================================#
 # import some modules which are used
 import dependencies
-from dependencies import np, os, mpl, plt, scipy, pdb, _found_wx
+from .dependencies import np, os, mpl, plt, scipy, pdb, _found_wx
 
 #==============================================================================#
 # import basic functions for eyeSpec
-from core import (eyeSpec_spec, convert_wavelength_units, inv_var_2_var, var_2_inv_var, verbose, asciiread)
+from .core import (eyeSpec_spec, convert_wavelength_units, inv_var_2_var, var_2_inv_var, verbose)
 
-from IO import (wlsoln_coeff_from_header, 
+from .io import (wlsoln_coeff_from_header, asciiread,
                 readin, readin_txt, readin_spectre_files, readin_single_order_files, readin_makee, readin_apogee, readin_hst, readin_spec,
                 save, save_spec, load_spec, save_txt_orders, save_txt)
-                
-from coadd import combine_orders
-                
-from plotting import plot_spec
+                                
+from .plotting import plot_spec
 plotspec = plot_spec
  
 #==============================================================================# 
 
-if _found_wx: from eS_interactive import *
+if _found_wx: from .eS_interactive import *
 
-from stellar_atmospheres import *
+from .stellar_atmospheres import *
   
 #==============================================================================#
 # import SPECTRE emulator

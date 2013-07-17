@@ -1,8 +1,8 @@
 # 
 
-from eyeSpec import __path__ as _eyeSpec_path #@UnresolvedImport
+from .. import __path__ as _eyeSpec_path #@UnresolvedImport
 
-from eyeSpec.dependencies import _check_for_wx #@UnresolvedImport
+from ..dependencies import _check_for_wx #@UnresolvedImport
 _check_for_wx()
 
 import wx #@UnusedImport
