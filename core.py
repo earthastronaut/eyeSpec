@@ -1,9 +1,10 @@
 # these are the basic functions and classes used by eyeSpec
 
 import pdb #@UnusedImport
-from .dependencies import np, os, sys, time, deepcopy, pyfits, scipy 
+from .dependencies import np, os, sys, time, deepcopy, fits, scipy, constants 
 from .utils.resampling import get_resampling_matrix, Gaussian_Density
     
+
 
 pass
 ########################################################################################
@@ -136,10 +137,10 @@ class Timer:
 
 class query_fits_header:
     """ 
-    This class looks through a pyfits header object and formats queries into useable formats
+    This class looks through a fits header object and formats queries into useable formats
 
     EXAMPLE:
-    >>> cval = __gethdr__(pyfits_header,'CVAL',no_val=0)
+    >>> cval = __gethdr__(fits_header,'CVAL',no_val=0)
     >>> # if found
     >>> cval.found == True
     >>> cval.val # the value for 'CVAL from the header
@@ -1064,7 +1065,7 @@ class EditSpectrumClassData:
 
     def convert_wl_to_pts (self,consequative=True):
         """
-        Convert all the wavelenths to points
+        Convert all the wavelengths to points
        
         WARNING: Will probably cause artificial stretching to your data
 
@@ -1081,24 +1082,51 @@ class EditSpectrumClassData:
             
             progressive_pt += len(wl)
 
-class _BaseSpectrum (object):
+
+
+class Continuum (object):
+    def __init__ (self):
+        self._xyfit = np.empty((0,0))
+        self._function = None
+        self._parameters = None
+        
+        
+    @property
+    def xyfit (self):
+        return self._xyfit
+ 
+ 
+        
+class BasicSpectrum (object):
     
     
     def __init__ (self,wavelengths,data,inv_var=None):
-        self._wl = wavelengths
-        self._data = data
-        self._inv_var = inv_var        
+        # get the wavelengths and flux as arrays
+        self._wavelengths = np.asarray(wavelengths)
+        self._flux = np.asarray(data)
+        # check the dimensions of the two arrays, they should match
+        if self._wavelengths.shape != self._flux.shape: 
+            raise ValueError("wavelength and flux shapes do not match")
+        # store shape
+        self.shape = self._wavelengths.shape
+        # get inverse variance
+        if inv_var is None:
+            self._inv_var = np.ones_like(self._wavelengths)
+        else:
+            self._inv_var = np.asarray(inv_var)
+            if self._inv_var.shape != self.shape:
+                raise ValueError("inverse varience does not have same shape as data")
 
     def __repr__ (self):
-        # return wavlengths,data,inv_var 
-        pass
-    
+        output = "Spectrum : "
+        return output
+            
     def __str__ (self):
-        # 
+        #
         pass
     
     def __eq__ (self,spectrum):
-        if not isinstance(spectrum,_BaseSpectrum):
+        if not isinstance(spectrum,BasicSpectrum):
             raise TypeError("Input spectrum is not a _BaseSpectrum subclass")
         c1 = self.wavelengths == spectrum.wavelengths
         c2 = self.data == spectrum.data
@@ -1124,58 +1152,149 @@ class _BaseSpectrum (object):
         self._inequality_error()
     
     @property
+    def array (self):
+        return np.dstack((self._wavelengths,self._data,self._inv_var))[0]
+    
+    @property
     def bounds (self):
         """ return the wlmin,wlmax,datamin,datamax """ 
-        pass
+        return (np.min(self.wavelengths),np.max(self.wavelengths),np.min(self.data),np.max(self.data))
     
     @property
     def data (self):
-        pass
+        return self._data
     
     @property
     def wavelengths (self):
-        pass
+        return self._wavelengths
     
     @property
     def inv_var (self):
-        pass
+        return self._inv_var
 
     @property
     def min (self):
         """ return wlmin, datamin """
-        pass
+        return (np.min(self.wavelengths),np.min(self.data))
     
     @property
     def max (self):
         """ return wlmax, datamax """
-        pass
+        return (np.max(self.wavelengths),np.max(self.data))
 
     def copy (self):
         """ returns a copy of itself """
-        pass
+        return BasicSpectrum(self.wavelengths,self.data,self.inv_var)
 
     def __getstate__ (self):
         """ used for pickle """
+        return self.__dict__
         
     def __setstate__ (self,state_dict):
-        pass
+        self.__dict__ = state_dict
 
-class _BaseEditableSpectrum (_BaseSpectrum):
+class BasicEditableSpectrum (BasicSpectrum):
+
     
     def __init__ (self,wavelengths,data,inv_var=None):
-        super(_BaseEditableSpectrum,self).__init__(wavelengths,data,inv_var)
-        pass
+        super(BasicEditableSpectrum,self).__init__(wavelengths,data,inv_var)
 
-    def rv_shift (self,rv):
-        pass
+    def rv_shift (self,rv,method=0):
+        if method not in (0,1,2):
+            raise ValueError("Method not in 0, 1, or 2")
+                    
+        try: rv = float(rv)
+        except ValueError:
+            raise ValueError("Radial velocity must be a floating point value")
         
-    def scale (self,wl_scaler=1.0,data_scaler=1.0):
-        pass
+        c = constants.c
+        
+        # solve  delta_lambda/lambda = rv/c
+        # delta_lambda = wl_new - wl_old
+        # lambda in [wl_old, wl_new, wl_mid]
+        # wl_mid = (wl_old + wl_new)/2.        
+
+        # if you have del_lambda/wl_mid = rv/c
+        if method == 0:
+            multi = (2. + rv/c)/(2. - rv/c)
+
+        # if you have del_lambda/wl_new = rv/c
+        elif method == 1:
+            multi = 1./(1. - rv/c)
+
+        # if you have del_lambda/wl_old = rv/c
+        elif method == 2:
+            multi = (1. + rv/c)
+
+        self._wavelengths *= multi
+        
+    def scale (self,wl_scaler=1.0,data_scaler=1.0):        
+        self._wavelengths *= wl_scaler
+        self._data *= data_scaler
+        self._inv_var *= abs(data_scaler)
     
     def translate (self,wl_shift=0.0,data_shift=0.0):
-        pass
+        self._wavelengths += wl_shift
+        self._data += data_shift
     
-    def crop (self,include=False,nan_value=np.nan,**kwargs):
+    def _crop_mask (self,arr):
+        if not isinstance(arr,np.ndarray):
+            raise TypeError("Given value is not a numpy array")
+    
+        if arr.dtype not in (np.bool,np.bool8,np.bool_):
+            raise ValueError("Must provide a boolean array")
+        
+        return arr
+
+    def _box_bounds (self,box_bounds):
+        try: box_bounds = np.asarray(box_bounds).asdtype(float)
+        except TypeError:
+            raise TypeError("Must provide a numpy convertable object")
+        except ValueError:
+            raise ValueError("Must provide a floating point array")
+        if box_bounds.shape != (4,):
+            raise ValueError("Given array must be (wlmin,wlmax,datamin,datamax)")
+        xmin,xmax,ymin,ymax = box_bounds
+        mask = (xmin <= self.wavelengths)*(self.wavelengths <= xmax)*(ymin <= self.data)*(self.data <= ymax)
+        return mask
+        
+    def _index_bounds (self,index_bounds):
+        try: index_bounds = np.asarray(index_bounds).asdtype(int)
+        except TypeError:
+            raise TypeError("Must provide a numpy convertable object")
+        except ValueError:
+            raise ValueError("Must provide a integer point array")
+        if index_bounds.shape != (2,):
+            raise ValueError("Given array must be (index_min,index_max)")
+        mask = np.zeros(len(self.wavelengths),dtype=bool)
+        mask[index_bounds[0]:index_bounds[1]] = True
+        return mask
+
+    def _wavelength_bounds (self,wavelength_bounds):
+        try: wavelength_bounds = np.asarray(wavelength_bounds).asdtype(float)
+        except TypeError:
+            raise TypeError("Must provide a numpy convertable object")
+        except ValueError:
+            raise ValueError("Must provide a float point array")
+        if wavelength_bounds.shape != (2,):
+            raise ValueError("Given array must be (wlmin,wlmax)")        
+        
+        mask = (wavelength_bounds[0] <= self.wavelengths)*(self.wavelengths <= wavelength_bounds[1])
+        return mask        
+
+    def _data_bounds (self,data_bounds):
+        try: data_bounds = np.asarray(data_bounds).asdtype(float)
+        except TypeError:
+            raise TypeError("Must provide a numpy convertable object")
+        except ValueError:
+            raise ValueError("Must provide a float point array")
+        if data_bounds.shape != (2,):
+            raise ValueError("Given array must be (wlmin,wlmax)")        
+        
+        mask = (data_bounds[0] <= self.data)*(self.data <= data_bounds[1])
+        return mask        
+         
+    def crop (self, include=False, nan_value=None, **kwargs):
         """ 
         Crop the data
         **kwargs ==> the bounds of the crop or a mask
@@ -1192,33 +1311,115 @@ class _BaseEditableSpectrum (_BaseSpectrum):
               db = None,
               bb = None):        
         """
-        pass
+        bounds_types = ['crop_mask','box_bounds','index_bounds','wavelength_bounds','data_bounds']
+        # bounds_funcs = [self._crop_mask,self._box_bounds,self._index_bounds,self._wavelength_bounds,self._data_bounds]
+        converters = {'cm':bounds_types[0],
+                      'bb':bounds_types[1],
+                      'ib':bounds_types[2],
+                      'wb':bounds_types[3],
+                      'db':bounds_types[4]}
+        
+        # get the bound type
+        for bound_type in kwargs:
+            bound_type = bound_type.lower()
+            if bound_type in converters: bound_type = converters[bound_type]
+            if bound_type in bounds_types:
+                bounds = kwargs[bound_type]
+                break
+        
+        if   bound_type == 'crop_mask':
+            mask = self._crop_mask(bounds)
+        elif bound_type == 'box_bounds':
+            mask = self._box_bounds(bounds)
+        elif bound_type == 'index_bounds':
+            mask = self._index_bounds(bounds)
+        elif bound_type == 'wavelength_bounds':
+            mask = self._wavelength_bounds(bounds)
+        elif bound_type == 'data_bounds':
+            mask =self._data_bounds(bounds)
+        else:
+            raise Exception("Must give a keyword argument for the type of bound: "+",".join(bounds_types))
+        
+        if not include: 
+            mask = np.logical_not(mask)
+        
+        if np.count_nonzero(mask) == 0:
+            print("No points have been selected to crop")
+            return
+        
+        self._inv_var[mask] = 0.0
+        
+        if nan_value is not None: self._data[mask] = nan_value
+        else:
+            # if all points were selected for editing unselect two points to interpolate with
+            if np.count_nonzero(mask) == len(self._data): 
+                MEAN = np.mean(self._data)
+                uhist = np.histogram(self._data,bins=int(np.sqrt(len(self._data))))
+                MODE = uhist[1][1:][uhist[0]==np.max(uhist[0])][0] # where the number in the bin (uhist[0]) is equal to the bin with the maximum number, return the corresponding value for the data (uhist[1]) #@UnusedVariable
+                mean1 = np.abs(self._data - MEAN).argmin()
+                mean2 = np.abs(self._data[self._data != self._data[mean1]] - MEAN).argmin()
+                # make two mid points opposite for interpolation 
+                mask[mean1] = False
+                mask[mean2] = False
 
-class Spectrum (_BaseEditableSpectrum):
+            # wavelength points inside box =>
+            edited_wl = self._wavelengths[mask]
+            # date points outside box =>
+            wl_pts_outside = deepcopy(self._wavelengths[np.logical_not(mask)])
+            dat_pts_outside = deepcopy(self._data[np.logical_not(mask)])
+            # interpolate to adjust data points inside box
+            if len(wl_pts_outside) != 0:
+                edited_data = np.array(scipy.interp(edited_wl,wl_pts_outside,dat_pts_outside),dtype=self._data.dtype)
+                # use the mask to set the new data, note that both must be of same dtype
+                self._data[mask] = deepcopy(edited_data)
+            else: pass # no change to new_data because no points were found
+                
+    def normalize (self,continuum):
+        if not isinstance(continuum,Continuum):
+            raise TypeError("Given continuum is not a Continuum object")
+        
+        xyfit = continuum.xyfit
+    
+        if len(xyfit) == len(self._wavelengths):
+            pixel_match = True
+        else:
+            pixel_match = False    
+            
+        if pixel_match:
+            new_data = self._data/xyfit[:,1]
+            
+        self._data = new_data
+
+class Spectrum (BasicEditableSpectrum):
     
     def __init__ (self,wavelengths,data,inv_var=None):  
         super(Spectrum,self).__init__(wavelengths,data,inv_var)
         
-    def get_state (self):
-        pass
+    def save (self,filename,file_format='ascii',clobber=True,**kwargs):
+        self._check_filename(filename, clobber)
+        formats = ("ascii","txt","fits")
+        if file_format not in formats:
+            raise ValueError("Format not in : "+",".join(formats))
     
-    def set_state (self,prevstate):
-        pass
-    
-    def save (self,filename,file_format='ascii',**kwargs):
         print file_format,filename,kwargs
         pass
     
-    def _save_txt (self,filename):
+    def _check_filename (self,filename,clobber):
+        filename = str(filename)
+        if os.path.isfile(filename) and not clobber:
+            raise IOError("File exists '"+filename+"'")
+        
+    def _save_txt (self,filename,clobber=True):
         pass
     
-    def _save_fits (self,filename):
+    def _save_fits (self,filename,clobber=True):
         pass
     
     # def open (self,filename,file_format='ascii',**kwargs):
   
+
         
-class _MultiOrderSpectrum (object):
+class BasicMultiOrderSpectrum (object):
     
     def __init__ (self,wavelengths,data,inv_var=None):
         pass
@@ -1236,8 +1437,7 @@ class _MultiOrderSpectrum (object):
         """ returns data as a ndarray """ 
         pass
 
-
-class MultiOrderSpectrum (object):
+class MultiOrderSpectrum (BasicMultiOrderSpectrum):
     
     def __init__ (self,spectrum_list):
         """ takes a list of spectrum objects and then uses _MultiOrderSpectrum"""
@@ -1258,7 +1458,10 @@ class MultiOrderSpectrum (object):
 
 
 
-      
+   
+   
+   
+   
 class eyeSpec_spec:
     """
     -----------------------------------------------------------------------
@@ -1278,8 +1481,8 @@ class eyeSpec_spec:
     inverse_varience (ndarray) inv_var.shape = (#bands,#orders,#pixels) has the 
                        inverse varience for each point. If not provided then varience 
                        is set to one.
-    header          (pyfits.header.Header) pyfits header, if None then it will 
-                    create an empty pyfits header
+    header          (fits.header.Header) fits header, if None then it will 
+                    create an empty fits header
     ==============  ===============================================================
     NOTE: wl, data, inverse_varience must have same shape but doesn't have to be
          three dimensional could just be shape = (#pixels) for each
@@ -1370,10 +1573,10 @@ class eyeSpec_spec:
         self._reset_notes_and_info()
 
         #--------------------------------------------#
-        if repr(type(header)) != "<class 'pyfits.header.Header'>": print "HeadsUp: creating original header because input header not of type <class 'pyfits.header.Header'> != :"+repr(type(header))
+        if repr(type(header)) != "<class 'fits.header.Header'>": print "HeadsUp: creating original header because input header not of type <class 'fits.header.Header'> != :"+repr(type(header))
         else:
-            new_header = pyfits.PrimaryHDU()
-            hdulist = pyfits.HDUList([new_header])
+            new_header = fits.PrimaryHDU()
+            hdulist = fits.HDUList([new_header])
             header = hdulist[0].header
             del new_header,hdulist
             header.update('NAXIS1',self.shape[2])
