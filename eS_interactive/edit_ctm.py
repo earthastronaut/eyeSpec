@@ -1,11 +1,12 @@
 # classes and functions associated with normalizing the spectrum data
 
-from ._core import (History, KeyboardConfiguration, SysOutListener, RandomPanel,
+from ._core import (History, KeyboardConfiguration, SysOutListener, RandomPanel, EventConnections,
                     eyeSpecBaseEventManager, eyeSpecBaseDataPanel, eyeSpecBaseMainPanel, eyeSpecBaseFrame, eyeSpecBaseDataPlot)
 from .. import __path__ as path_2_eyeSpec
 # now import basic dependencies from other modules
 from ..dependencies import (np, os, sys, time, iget, deepcopy,
                             scipy, wx, resampling)
+from ..utils.piecewise_poly import fit_piecewise_polynomial
 
 
 def _ctm_what_happened ():
@@ -65,9 +66,7 @@ class SynthesisBasedGuess (wx.Dialog, EventConnections):
         if ordi not in self._syn_data: self._get_syn_data_for_order(data,ordi)
        
         syndat = self._syn_data[ordi]
-        starts = []
-        stops = []
-        
+        regions = []        
         min_num = 10
 
         wls = syndat[0]
@@ -165,7 +164,6 @@ class PlotContinuumDialog (wx.Dialog, EventConnections):
         ordi = self.parent.dp.plot_data.get_current_i()
         if ordi is None: raise StandardError("This shouldn't be None if I am always selected whenever I plot")
 
-        prev_i = -1
         options = []
         self.options = {}
         for i in cur_ctm_i:
@@ -303,7 +301,7 @@ class PlotContinuumDialog (wx.Dialog, EventConnections):
         check_var = self._check_variables()
         if check_var is None: return
         
-        all_possible, ordi, check = check_var
+        all_possible, _ordi, check = check_var
         if not check:
             print "No orders have been clicked on"
             return None
@@ -316,13 +314,13 @@ class PlotContinuumDialog (wx.Dialog, EventConnections):
         ordi = self.parent.dp.plot_data.get_current_i()
         # if the order is checked
         if ordi in self.options.keys():
-           val = self.options[ordi]
-           if val.find('DELETED') != -1 and self._check_evts[val][1]:
-               # then start with that as the average
-               order = self.parent.order_ctm[ordi]
-               xyfit = order.get_fit_xydata()
-               func_type = order.get_func_type()
-               number_averaged += 1
+            val = self.options[ordi]
+            if val.find('DELETED') != -1 and self._check_evts[val][1]:
+                # then start with that as the average
+                order = self.parent.order_ctm[ordi]
+                xyfit = order.get_fit_xydata()
+                func_type = order.get_func_type()
+                number_averaged += 1
 
 
         # find the match
@@ -359,7 +357,7 @@ class PlotContinuumDialog (wx.Dialog, EventConnections):
         if needed_interp: print "HeadsUp: applied interpolation to get average"
         return xyfit, func_type
 
-    def Average_Continuum_Apply (self,event):
+    def Average_Continuum_Apply (self,event): #@UnusedVariable
         avg_output= self.Average_Continuum()
         if avg_output is None: return
         # xyfit, func_type = avg_output
@@ -433,7 +431,7 @@ class PlotContinuumDialog (wx.Dialog, EventConnections):
                                   addhist = True)
         self.parent.update()
                 
-    def Select_All (self,event=None):
+    def Select_All (self,event=None): #@UnusedVariable
         all_possible = self.parent.order_ctm.keys()
         ordi = self.parent.dp.plot_data.get_current_i()
         for i in all_possible:
@@ -457,7 +455,7 @@ class PlotContinuumDialog (wx.Dialog, EventConnections):
         self._are_all_selected = True
         self.force_refresh_plot()
 
-    def Deselect_All (self,event=None):
+    def Deselect_All (self,event=None): #@UnusedVariable
         all_possible = self.parent.order_ctm.keys()
         ordi = self.parent.dp.plot_data.get_current_i()
         for i in all_possible:
@@ -483,7 +481,7 @@ class PlotContinuumDialog (wx.Dialog, EventConnections):
         self._are_all_selected = False
         self.force_refresh_plot()
 
-    def Toggle_Select_All (self,event):
+    def Toggle_Select_All (self,event): #@UnusedVariable
         all_possible = self.parent.order_ctm.keys()
         ordi = self.parent.dp.plot_data.get_current_i()
         if self._are_all_selected: self.Deselect_All()
@@ -680,10 +678,11 @@ class ContinuumPoints:
         self.pts.set(**mplkwargs)
         
     def get_id (self):
-        id = (self._ordi,self._kind)   
+        ID = (self._ordi,self._kind)   
+        return ID
     
     def get_order_index (self):
-        return ordi
+        return self.ordi
     
     def get_current_state (self):
         curstate = {'type':'points',
@@ -846,7 +845,6 @@ class ContinuumPointsManager:
         self.sel_pt = 0
         self.sel_pt, = self.ax.plot(0,0,linestyle='none',marker='o',visible=False,color='y',markersize=15)
 
-
     def get_id (self):
         return deepcopy(self._ordi)
     
@@ -909,9 +907,7 @@ class ContinuumPointsManager:
         self._prevlabel = label
       
     def add_pt (self,xpt,ypt,which):
-        print "huh??",xpt,ypt,which
         if which not in self.get_labels(): return
-        point_set = self._sets[which]
         self._sets[which].add_pt(xpt,ypt)
 
     def _default_mplkwargs (self,**mplkwargs):
@@ -965,22 +961,20 @@ class ContinuumPointsManager:
     def __adopt_pts (self,which,xyfit,method='modify_new',pts_set={}):
         xy = self.pts.get_xydata(which)
 
-        xnew,ynew = xy.copy()
+        xnew,_ynew = xy.copy()
         if method == 'modify_new':
-            if len(X) == 0: method = 'new'
+            if len(xnew) == 0: method = 'new'
             else: method = 'modify'
         
-        if method == 'modify': ynew = scip.interp(xnew,xyfit[0],xyfit[1])
+        if method == 'modify': ynew = scipy.interp(xnew,xyfit[0],xyfit[1])
         elif method == 'new': print "Gah this won't work as new"
         elif method in ('set') and which in pts_set:
             xpts,ypts = pts_set[which]
             self.pts[which].set_pts(xpts,ypts)
             
-
     def adopt_pts (self,xyfit,method='modify_new',pts_sets={}):
         for which in self.get_labels():
-            self.__adopt_pts(which, xyfit, method, pts_set)
-
+            self.__adopt_pts(which, xyfit, method, pts_sets)
 
     pass
     ##=========> on selected           
@@ -1130,7 +1124,7 @@ class ContinuumPointsManager:
         self._currentlabel = None
         if which == None: return
         
-        i = self._sets[which].get_current_i()
+        _i = self._sets[which].get_current_i()
         self._sets[which].set_current_i(None)   
 
     pass
@@ -1155,7 +1149,7 @@ class ContinuumPointsManager:
         for label in which: self._sets[label].translate(xadd,yadd)
             
     def scale (self,xmult,ymult,which=None): 
-        if which == None: return self.scale_selected(xadd, yadd)
+        if which == None: return self.scale_selected(xmult, ymult)
         elif which == 'all': which = self.get_labels()
         else: which = [which]
 
@@ -1171,15 +1165,15 @@ class ContinuumPointsManager:
     def scale_selected (self,xmult,ymult):
         label, i = self.get_selected()
         if label is None: return
-        self._selected_translate_scale(xadd, yadd,2)
-        self._sets[label].scale(xadd,yadd,point=i)
+        self._selected_translate_scale(xmult, ymult,2)
+        self._sets[label].scale(xmult,ymult,point=i)
         
     def sort_by_wavelength (self,which='all'):
         if which == 'all': 
             for label in self.get_labels(): self._sets[label].sort_by_wavelength()
             return
         elif which == None:
-            which,i = self.get_selected()
+            which,_i = self.get_selected()
             if which is None: return
         
         self._sets[which].sort_by_wavelength()
@@ -1252,7 +1246,7 @@ class CalculateContinuum:
         usex = xpts[mask]
         if len(usex) <= spline_order: return [],[]
         else:
-            if use_lsq: func = scipy.interpolate.LSQUnivariateSpline(data[0],data[1],uesx,data[2],k=spline_order)
+            if use_lsq: func = scipy.interpolate.LSQUnivariateSpline(data[0],data[1],usex,data[2],k=spline_order)
             else: func = scipy.interpolate.UnivariateSpline(usex,ypts[mask],k=spline_order)
             return data[0], func(data[0])
 
@@ -1342,14 +1336,15 @@ class OrderContinuum:
     pass
     #========= access variables ===========#   
     def scan_func_types (self,data,direction="+"):
-        func_type = self.calc_ctm.get_next_func_type(self,func_type)
+        
+        func_type = self.calc_ctm.get_next_func_type(self,self.func_type)
         self.func_type = func_type
         self.calculate_ctm_fit(data)
 
     def get_func_type (self):
         return self.func_type
 
-    def set_func_type (self,func_type):
+    def set_func_type (self,data,func_type):
         if self.calc_ctm.check_func_type(func_type,boolcheck=True):
             self.func_type = func_type
         else: return
@@ -1398,9 +1393,11 @@ class OrderContinuum:
         
         self.set_visible(False)
 
+        data = self.get_ctm_xydata()
+
         received_func_type = False
         if 'func_type' in fit_params:
-            self.set_func_type(fit_params['func_type'])
+            self.set_func_type(data,fit_params['func_type'])
             received_func_type = True
             
         method = 'modify_new'
@@ -2387,7 +2384,7 @@ MODIFICATION HISTORY:
     if spec_obj.__class__.__name__ != 'eyeSpec_spec': raise ValueError("obj MUST BE OF CLASS eyeSpec_spec")
         
     edit_obj = spec_obj.copy()
-    save_spec(spec_obj,filename='TMP_OBJ_SAVE_ORIG',clobber=True)
+    # save_spec(spec_obj,filename='TMP_OBJ_SAVE_ORIG',clobber=True)
 
 
    # def _run_app (spec_obj,line_data):

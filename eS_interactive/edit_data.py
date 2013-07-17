@@ -31,79 +31,6 @@ def _app_edit_data_what_happened ():
 
 ################################################################################
 
-class EditDataPanel (eyeSpecBaseDataPanel):
-    
-    def __init__ (self,edit_data_main_panel,edit_data_frame):
-        parent_panel = edit_data_main_panel
-        parent_frame = edit_data_frame
-        
-        eyeSpecBaseDataPanel.__init__(self, parent_panel, parent_frame)
-        self.spec_obj = edit_data_frame.spec_obj
-        
-        #-------------------------------------------------#
-        # add editors
-        self.edManager = EditDataManager(self, self.spec_obj)  # InteractiveDataEditor(spec_obj,parent=self)
-        self.edManager.disconnect()
-        
-        del self.canvas.callbacks.callbacks['motion_notify_event'][self.statusbar_cid]
-        self.canvas.mpl_connect('motion_notify_event',self.DataUpdateStatusBar)
-        
-    def DataUpdateStatusBar (self,event):
-        scale_txt = "Auto Scale "
-        scale_opt,_ = self.edManager.ide.dp.get_auto_scaling_opt()
-        if scale_opt == 0: scale_txt += 'X,Y'
-        elif scale_opt == 1: scale_txt += 'X'
-        elif scale_opt == 2: scale_txt += 'Y'
-        elif scale_opt == 3: scale_txt += 'None'
-        
-                
-        current_order = self.edManager.ide.get_order_index()
-        ord_txt = "Order: "
-        if current_order is None: ord_txt += 'None'
-        else: ord_txt += str(current_order)+"/" + str(self.spec_obj.shape[1] - 1)
-        
-        st = format(scale_txt,'16')+" |  "+format(ord_txt,'17')
-        
-        self.UpdateStatusBar(event,st)
-        
-    def OnStart (self, event):
-        super(EditDataPanel,self).OnStart(event)
-        
-        del self.canvas.callbacks.callbacks['key_press_event'][self._onkeystart_cid]
-        del self.canvas.callbacks.callbacks['button_press_event'][self._onbutstart_cid]
-
-        
-        
-        print ""
-        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        print "QUESTIONS TO USER:"
-        questions = ["o  should the shift in wavelength be relative or fixed which arrowing, currently fixed at 1 Angstrom for every change, should it be 5% of the range?",
-                     "o  I had to make some choices about how the window scales as  you move through, any suggestions?",
-                     "o  How do you like the initial starting? any suggestions?",
-                     "o  Let me know if you have any problems with freezing after  you close the window (dylan.gregersen@utah.edu), please note whether you exited by closing the window or pressing 'q'",
-                     "--"*20]
-        print ("\n".join(questions))
-
-        print ""
-        
-        first_order = self.edManager.ide.dp.plot_data[0].get_xdata()
-
-        xmin, xmax = np.min(first_order), np.max(first_order)
-        ran = (xmax - xmin)
-        self.ax.set_xlim(xmin + .1 * ran, xmax + .1 * ran)  # semi-arbitrary starting point
-
-        self.edManager.connect()
-        self.edManager.update()
-
-class EditDataMainPanel (eyeSpecBaseMainPanel):
-    def __init__ (self,parent_frame):
-        eyeSpecBaseMainPanel.__init__(self, parent_frame,'split_top')
-        
-        # define top panel 
-        self.datapanel = EditDataPanel(self.Split0,self.pframe)
-        self.canvas = self.datapanel.canvas
-        self.split_top(self.datapanel)
-         
 class InteractiveDataEditor:
     """
     
@@ -203,7 +130,6 @@ class InteractiveDataEditor:
     def _apply_params_data_edit (self, lines):
         print "!! need to update", lines
         self.update()
-
 
     def undo_redo_edit_data (self, prev_state):
         current_state = self.dataplot.get_current_state_data()
@@ -653,31 +579,6 @@ class InteractiveDataEditor:
             c4 = True
         return (c1 or c2 or c3 or c4)
 
-class EditDataFrame (eyeSpecBaseFrame):
-    def __init__ (self, parent_window, inputs):
-        """
-        inputs must be a single eyeSpec spectrum object
-        """
-        
-        self.spec_obj = inputs
-        
-        title = 'Edit Data: '+os.path.basename(self.spec_obj.filename)
-        eyeSpecBaseFrame.__init__(self, parent_window, title)
-    
-        self.panel = EditDataMainPanel(self)    
-
-    def OnFinish (self):
-        self.Backup()
-        spec_obj = self.panel.datapanel.edManager.ide.dp.spec_obj
-        return spec_obj
-       
-    def Backup (self):
-        print "Closing: If this hangs up look at the file TMP_WHAT_JUST_HAPPENED.txt"
-        _app_edit_data_what_happened()
-        spec_obj = self.panel.datapanel.edManager.ide.dp.spec_obj
-        save_txt(spec_obj,filename='TMP_OBJ_SAVE_EDIT.pkl',clobber=True)
-        time.sleep(.5)        
-
 class EditDataManager (eyeSpecBaseEventManager):
     def __init__ (self, edit_data_panel, spec_obj):
         eyeSpecBaseEventManager.__init__(self)
@@ -830,6 +731,99 @@ class EditDataManager (eyeSpecBaseEventManager):
         self.ide.update()
         self.ide.dp.bounds_changed(True)
         self.ax.figure.canvas.draw()
+
+class EditDataPanel (eyeSpecBaseDataPanel):
+    
+    def __init__ (self,edit_data_main_panel,edit_data_frame):
+        parent_panel = edit_data_main_panel
+        parent_frame = edit_data_frame
+        
+        eyeSpecBaseDataPanel.__init__(self, parent_panel, parent_frame)
+        self.spec_obj = edit_data_frame.spec_obj
+        
+        #-------------------------------------------------#
+        # add editors
+        self.edManager = EditDataManager(self, self.spec_obj)  # InteractiveDataEditor(spec_obj,parent=self)
+        self.edManager.disconnect()
+        
+        del self.canvas.callbacks.callbacks['motion_notify_event'][self.statusbar_cid]
+        self.canvas.mpl_connect('motion_notify_event',self.DataUpdateStatusBar)
+        
+    def DataUpdateStatusBar (self,event):
+        scale_txt = "Auto Scale "
+        scale_opt,_ = self.edManager.ide.dp.get_auto_scaling_opt()
+        if scale_opt == 0: scale_txt += 'X,Y'
+        elif scale_opt == 1: scale_txt += 'X'
+        elif scale_opt == 2: scale_txt += 'Y'
+        elif scale_opt == 3: scale_txt += 'None'
+        
+                
+        current_order = self.edManager.ide.get_order_index()
+        ord_txt = "Order: "
+        if current_order is None: ord_txt += 'None'
+        else: ord_txt += str(current_order)+"/" + str(self.spec_obj.shape[1] - 1)
+        
+        st = format(scale_txt,'16')+" |  "+format(ord_txt,'17')
+        
+        self.UpdateStatusBar(event,st)
+        
+    def OnStart (self, event):
+        super(EditDataPanel,self).OnStart(event)
+        
+        print ""
+        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print "QUESTIONS TO USER:"
+        questions = ["o  should the shift in wavelength be relative or fixed which arrowing, currently fixed at 1 Angstrom for every change, should it be 5% of the range?",
+                     "o  I had to make some choices about how the window scales as  you move through, any suggestions?",
+                     "o  How do you like the initial starting? any suggestions?",
+                     "o  Let me know if you have any problems with freezing after  you close the window (dylan.gregersen@utah.edu), please note whether you exited by closing the window or pressing 'q'",
+                     "--"*20]
+        print ("\n".join(questions))
+
+        print ""
+        
+        first_order = self.edManager.ide.dp.plot_data[0].get_xdata()
+
+        xmin, xmax = np.min(first_order), np.max(first_order)
+        ran = (xmax - xmin)
+        self.ax.set_xlim(xmin + .1 * ran, xmax + .1 * ran)  # semi-arbitrary starting point
+
+        self.edManager.connect()
+        self.edManager.update()
+
+class EditDataMainPanel (eyeSpecBaseMainPanel):
+    def __init__ (self,parent_frame):
+        eyeSpecBaseMainPanel.__init__(self, parent_frame,'split_top')
+        
+        # define top panel 
+        self.datapanel = EditDataPanel(self.Split0,self.pframe)
+        self.canvas = self.datapanel.canvas
+        self.split_top(self.datapanel)
+         
+class EditDataFrame (eyeSpecBaseFrame):
+    def __init__ (self, parent_window, inputs):
+        """
+        inputs must be a single eyeSpec spectrum object
+        """
+        
+        self.spec_obj = inputs
+        
+        title = 'Edit Data: '+os.path.basename(self.spec_obj.filename)
+        eyeSpecBaseFrame.__init__(self, parent_window, title)
+    
+        self.panel = EditDataMainPanel(self)    
+
+    def OnFinish (self):
+        self.Backup()
+        spec_obj = self.panel.datapanel.edManager.ide.dp.spec_obj
+        return spec_obj
+       
+    def Backup (self):
+        print "Closing: If this hangs up look at the file TMP_WHAT_JUST_HAPPENED.txt"
+        _app_edit_data_what_happened()
+        spec_obj = self.panel.datapanel.edManager.ide.dp.spec_obj
+        save_txt(spec_obj,filename='TMP_OBJ_SAVE_EDIT.pkl',clobber=True)
+        time.sleep(.5)        
     
 
 ############################################################################
@@ -855,14 +849,14 @@ def edit_data (spec, clean_up=True):
 
     ##########################################
     # run application
-    app = eyeSpecBaseApp(EditDataFrame,edit_spec)
+    app = eyeSpecBaseApp(EditDataFrame,edit_spec) # wx.App()
     sys.stdout = SysOutListener()
     try: app.MainLoop()
     finally:
         app.ExitMainLoop()
         final_spec = app.Finish()
         del app
-
+        
     print "-"*60
     print "-"*20+format("Edit Data Complete",'^26')+"-"*20
 
