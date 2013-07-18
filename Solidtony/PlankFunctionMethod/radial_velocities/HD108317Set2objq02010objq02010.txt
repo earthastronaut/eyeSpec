@@ -1,0 +1,10 @@
+# Radial Velocity and Constants for star:HD108317Set2objq02010objq02010
+
+T=5100   v=-97.8   C=4.7619047619e-14   U=0.37
+
+##################################################################
+Terms
+# T is the temperature taken from the xls file for the stars
+# v is the velocity shift that best fits the synth
+#C is the constant for amount of flux, determined by best observed fit
+#U is used to shift up or down the Curve fit

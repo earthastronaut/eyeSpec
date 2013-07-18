@@ -1,0 +1,3 @@
+# Radial Velocity stats for star:/media/solidtonyubuntu/PROJECT_HST/StarData/HD108317/Set2/st.avg.fits
+#----------------------------------------
+# STATS:       0.000 +- 0.000        STD=0.000        N=0.0       

@@ -1,0 +1,4 @@
+# Radial Velocity stats for star:/media/solidtonyubuntu/PROJECT_HST/StarData/CS31082-001/Set2/st.norm.fits
+  2966.898    -230.482  Fe I (1)  
+#----------------------------------------
+# STATS:    -230.482 +- 0.000        STD=0.000        N=1.0       
