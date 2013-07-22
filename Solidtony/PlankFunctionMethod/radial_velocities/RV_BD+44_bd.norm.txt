@@ -1,0 +1,4 @@
+# Radial Velocity stats for star:/media/solidtonyubuntu/PROJECT_HST/IUR/bd.norm.fits
+  2399.237      -1.815  Fe II (2,36)
+#----------------------------------------
+# STATS:      -1.815 +- 0.000        STD=0.000        N=1.0       
