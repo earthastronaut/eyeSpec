@@ -4,7 +4,7 @@ import pdb #@UnusedImport
 from ..stellar_atmospheres import executables 
 from ..dependencies import np, os, time, subprocess, threading
 from ..core import get_bounds, get_filename 
-from .moog_functions import read_moog_linelist, write_moog_par, write_moog_lines_in, simple_llist_data, get_model_name
+from .moog_utils import read_moog_linelist, write_moog_par, write_moog_lines_in, simple_llist_data, get_model_name
 
 pass
 #=============================================================================#
@@ -615,7 +615,7 @@ MODIFICATION HISTORY:
 
     check_moog07(True)    
     # get the input filename
-    inputf = get_filename("Please give input linelist file:",'r')
+    inputf, = get_filename("Please give input linelist file:",'r')
     linelist = np.loadtxt(inputf,usecols=[0,1,2,3])
 
     run_create_atmo_model() # ==> FINALMODEL
@@ -629,9 +629,9 @@ MODIFICATION HISTORY:
 
         
     # get output filename
-    output_file = get_filename("Please give output file name:",'w')
+    output_file, = get_filename("Please give output file name:",'w')
 
-    log_file = get_filename("Please optional give a logfile, for no file press enter:",'w',default=False)
+    log_file, = get_filename("Please optional give a logfile, for no file press enter:",'w',default=False)
     if log_file == False: log_file = None
 
     print " "

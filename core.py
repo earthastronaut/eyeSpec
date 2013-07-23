@@ -366,45 +366,87 @@ def get_bounds (prompt,lower_too=False,default=(0,1e20),display_help='No Help Av
                 
             except: pass
         print "Invalid input. Type 'help' for more info."
-       
+ 
+def user_choices (choices,question="Please pick one :",default=0,prompt=None):
+    if not isinstance(choices,(list,np.ndarray,tuple)):
+        raise TypeError("choices must be a list or array of choices")
+    
+    str_choices = np.array([str(x) for x in choices])
+    
+    reserved = ('a','abort','help','?','h')
+    for val in reserved:
+        if val in str_choices:
+            raise ValueError("Sorry, '"+val+"' can't be a choice because it's reserved in "+", ".join(reserved))    
+    try:
+        str_choices[default]
+    except IndexError:
+        raise ValueError("default must be the index of the default choice in choices")
+      
+    choices_string = ", ".join(str_choices[:-1])+" or "+str_choices[-1]
+            
+    if prompt is None:
+        prompt =  "".join((question,"  ",choices_string,'\n'))
+
+    while True:
+        choice = raw_input(str(prompt))
+        choice = choice.replace("'","")
+        if not choice:
+            return str_choices[default]
+        
+        if choice in ('a','abort'):
+            return np.where(str_choices=='a')[0]
+        
+        if choice in ('h','help','?'):
+            print("This routine allows you to pick one of the following choices:")
+            print("   "+choices_string+"\n")
+            print("Other options:")
+            print("-"*60)
+            print("[a]bort - will break this loop")
+            print("[h]elp  - will display this help screen")
+            print("[Return]- is choice : "+str_choices[default])
+            print("-"*60) 
+            print("")
+            continue       
+        
+        if choice in str_choices:
+            return np.where(str_choices==choice)[0]
+        
+        print("Please enter one of these choices : "+choices_string)
+        
 def yesno (question="Please choose:",default_answer='n',prompt=None):
     """
-PURPOSE:
-    Prompt for a yes or no question and return True or False respectively
-   
-CATEGORY:
-    User functions
-
-INPUT ARGUMENTS:
-    None
-
-INPUT KEYWORD ARGUMENTS:
-   question : (string) This becomes the prompt with ('yes','no') appended to the end
-   default_answer : (string or boolean) if True or 'y' then enter gives that True, conversely for False and 'n'
-   prompt: (string) Over-rules the question and just uses the string for the prompt
-   
-OUTPUTS:
-    (boolean) True if answered yes, False if answered no
-       
-DEPENDENCIES:
-   External Modules Required
-   =================================================
-   None
-   
-   External Functions and Classes Required
-   =================================================
-    None
-       
-NOTES:
-   (1) If default answer is given then the ('yes','no') will become ('yes',['no']) or (['yes'],'no') with the [] giving the default value when enter is hit
+    Prompt for a yes or no question and return True or False respectively    
     
-
-EXAMPLE:
-   >>> if yesno("Please enter yes or no",'n'): print "Yes!"*100
-
-MODIFICATION HISTORY:
-    15, July 2013: Dylan Gregersen
-
+    Parameters
+    ----------
+    question : string
+        This becomes the prompt with ('yes','no') appended to the end
+    default_answer : 'y','yes',True or 'n','no',False
+        if 'True' or 'y' then enter returns True, conversely for False and 'n'
+    prompt: string or None
+        If given this supersedes the prompt built using question and uses
+        this string directly in the raw_input call 
+        
+    Returns
+    -------
+    yesno : boolean
+        Returns 'True' for a 'yes' to the prompt and 'False' for a 'no'
+    
+    Notes
+    -----
+    __1)__ If default answer is given then the ('yes','no') will become ('yes',['no']) 
+        or (['yes'],'no') with the [] giving the default value when enter is hit
+    
+    Examples
+    --------
+    >>> if yesno("Does 3/4==9/12? ","y"): 
+    >>>     print "Yes!"*10
+    Does 3/4==9/12? (['yes'],'no')
+    y
+    
+    Yes! Yes! Yes! Yes! Yes! Yes! Yes! Yes! Yes! Yes!
+    
+    
     """   
     if type(default_answer) == bool:
         if default_answer: default_answer='y'
@@ -427,64 +469,71 @@ MODIFICATION HISTORY:
         elif choice == '' and default_answer=='y': return True
         else: print "Please answer 'yes','no','y', or 'n'"        
 
-def get_filename (prompt='ENTER FILENAME:', iotype='r', default=None, enter_multi = False, filename=None, find_filename=False):
+def get_filename (prompt='ENTER FILENAME:', iotype='r', default=(None,), enter_multi = False, filename=None, find_filename=False):
     """
-PURPOSE:
-   To interactively get filenames
-   
-CATEGORY:
-   User functions
-
-INPUT ARGUMENTS:
-   None
-
-INPUT KEYWORD ARGUMENTS:
-   prompt  : (string) The string to appear as the prompt for giving files
-   iotype  : (string) either 'r' or 'w' for read or write
-   default : (--) This object will be returned as a default value from the function
-   enter_multi : (bool) If True it will prompt for entering multiple files
-   filename : (string) a filename to check and then prompt for another if it isn't appropriate entry
-   fine_filename : (bool) If True then if the file is not found it will prompt for finding it again
-   
-OUTPUTS:
-   if enter_multi: (list) gives a list of the entered values or the default 
-   else: (string) gives the filename or the default
-
-DEPENDENCIES:
-   External Modules Required
-   =================================================
-    os, raw_input, deepcopy
-   
-   External Functions and Classes Required
-   =================================================
-    yesno
-       
-NOTES:
-   (1) Appropriate entry means that if iotype if 'r' then the file should exist if iotype if 'w' then it shouldn't or if prompts for overwriting the file
-
-   (2) This creates lists of the files using set so you won't get repeats of files 
-
-EXAMPLE:
-   >>> fname = get_filename()
-
-MODIFICATION HISTORY:
-    5, July 2013: Dylan Gregersen
-                   
-    """  
-    base_prompt = deepcopy(prompt)
+    Interactively get a filename(s)
     
+    This uses raw_input to collect information about filenames and returns the desired output.
+    There are options to extract lists of files and to check a specific file before prompting
+    
+    
+    Parameters
+    ----------
+    prompt : string
+        Gives the string to be given when prompting for a filename
+    iotype : 'r' or 'w'
+        When 'r' this will perform checks to see if the file exists and return 
+        the default value if not
+        When 'w' this will perform a check to see if the file exists and 
+        prompt whether you want to overwrite
+    default : object
+        This object is returned if no proper (see note 1) filename is found
+    enter_multi : boolean
+        If 'True' then it will prompt for multiple files to be entered
+    filename : string or None
+        If not None then it provides a filename which will first be checked
+        then if it doesn't exist (for 'r') or exists (for 'w') then it will
+        prompt the user appropriately
+    find_filename : boolean
+        If 'True' then if the file is not appropriate (see note 1) then it
+        will further prompt the user for an appropriate value. If 'False'
+        then it will display an message and return the default
+        
+    Returns
+    -------
+    filenames : tuple 
+        Returns all the appropriate filenames which were collected.
+
+    
+    Notes
+    -----
+    __1)__ Appropriate entry means that if iotype if 'r' then the file should
+        exist if iotype if 'w' then it shouldn't or if prompts for overwriting the file
+    __2)__ This creates lists of the files using set so you won't get repeats of files
+    
+    
+    Examples
+    --------
+    >>> fname, = get_filename()
+    >>>
+    >>> fnames = get_filename(enter_multi=True)
+    
+    
+    """  
+    base_prompt = deepcopy(prompt) 
     check_filename = (filename != None)
-      
     files = set([])
       
     i = 0
         
     # Loop     
     while True:
-        if enter_multi: prompt = "["+format(i,"2")+"] "+base_prompt
+        if enter_multi: 
+            prompt = "["+format(i,"2")+"] "+base_prompt
         
         # Get the filename
-        if check_filename: fname = str(filename)
+        if check_filename: 
+            fname = str(filename)
         else:            
             fname = raw_input(str(prompt))
             
@@ -522,7 +571,8 @@ MODIFICATION HISTORY:
                 print ""
                 continue
                 
-            if enter_multi and fname == '.': break
+            if enter_multi and fname == '.': 
+                break
         
         
         good_file = True
@@ -544,20 +594,19 @@ MODIFICATION HISTORY:
         
         # check 
         if good_file:
-            if enter_multi and find_filename and i == 0 : print "[ 0] gave file "+fname
+            if enter_multi and find_filename and i == 0 : 
+                print "[ 0] gave file "+fname
              
             files.add(fname)
             i += 1
             
         # else try again
-        elif not good_file and find_filename: continue
+        elif not good_file and find_filename: 
+            continue
         
         if not enter_multi: break
 
-    files = list(files)        
-    if   len(files) == 0: return default
-    elif enter_multi: return files
-    else: return files
+    return tuple(files)
 
 pass
 ########################################################################################
@@ -1082,8 +1131,6 @@ class EditSpectrumClassData:
             
             progressive_pt += len(wl)
 
-
-
 class Continuum (object):
     def __init__ (self):
         self._xyfit = np.empty((0,0))
@@ -1094,9 +1141,7 @@ class Continuum (object):
     @property
     def xyfit (self):
         return self._xyfit
- 
- 
-        
+         
 class BasicSpectrum (object):
     
     

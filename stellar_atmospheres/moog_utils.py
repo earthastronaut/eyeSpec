@@ -1183,7 +1183,7 @@ MODIFICATION HISTORY:
             
     # stack the data together into wl,flux pairs
     xy = np.dstack((wls,data))[0].T
-    return xy,header      
+    return xy, header      
 
 def data_table_line_parser (line,strongline=False,scale_up_strength=1):
     """

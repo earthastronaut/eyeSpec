@@ -5,7 +5,7 @@
 from ..dependencies import  np, os, subprocess #@UnresolvedImport
 from ..core import get_filename #@UnresolvedImport
 from ..stellar_atmospheres import executables #@UnresolvedImport
-from .moog_functions import get_model_name, load_Batom
+from .moog_utils import get_model_name, load_Batom
 
 pass
 #=============================================================================#
@@ -174,7 +174,7 @@ MODIFICATION HISTORY:
     inmodel = inmodel.split()
 
     if len(inmodel) == 1:
-        mod_fname = get_filename("Please give MOOG model file",'r',inmodel[0])
+        mod_fname, = get_filename("Please give MOOG model file",'r',inmodel[0])
         if os.path.abspath(mod_fname) != os.path.abspath('./FINALMODEL'): os.system("cp "+mod_fname+" ./FINALMODEL")
     else:
         teff,logg,feh,vmicro =  np.array(inmodel[:4],dtype=float)
