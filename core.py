@@ -168,7 +168,7 @@ class SpreadsheetCells (dict):
     """
     This is a subclass of a dictionary which has extra restrictions for the
     keys and values. Keys must be (row,column) and not overwrite unless 
-    explicitly so. Values must be (value,style) for later puting into
+    explicitly so. Values must be (value,style) for later putting into
     an xlwt spreadsheet
     
     """
@@ -177,12 +177,12 @@ class SpreadsheetCells (dict):
         super(SpreadsheetCells,self).__init__()
     
     def _check_in (self,i):
-        try: row,col = i
+        try: _row,_col = i 
         except TypeError:
             raise TypeError("Input into ablines must be (row,col) ")
             
     def _check_set (self,y):
-        try: input,style = y
+        try: _input,_style = y 
         except TypeError:
             raise TypeError("Set value must be (input,style)") 
            
@@ -2182,19 +2182,4 @@ class eyeSpec_spec:
         self.__dict__ = state_dict
         self._initialization_time = time.ctime()
 
-
-
-
-def check1 (val):
-    if not isinstance(val,(tuple,list,np.ndarray)):
-        pass
-    if len(val) != 2:
-        pass
-    
-def check2 (val):
-    try: a,b = val
-    except TypeError:
-        pass
-    
-    
 
