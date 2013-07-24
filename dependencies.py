@@ -20,6 +20,7 @@
 import math 
 import os 
 import sys 
+from datetime import datetime
 # !! check the version of python to be < 3.0
 
 
@@ -99,12 +100,20 @@ if _found_wx:
                 # this basically is an interactive way to output a list of x-points which are the overlaps for different orders, as well as delete parts of orders.
         matplotlib.rcParams['backend'] = 'WXAgg'
 
+import matplotlib.pylab as plt 
 from matplotlib.figure import Figure 
 from matplotlib.widgets import Button 
-import matplotlib.pylab as plt 
-#from matplotlib.ticker import LinearLocator, MultipleLocator
 from matplotlib.pylab import FormatStrFormatter, savefig 
 from matplotlib.path import Path 
+
+#==============================================================================#
+# Spreadsheets
+try: 
+    import xlwt
+    import xlrd
+except ImportError:
+    xlwt = None
+    xlrd = None
 
 
 #==============================================================================#

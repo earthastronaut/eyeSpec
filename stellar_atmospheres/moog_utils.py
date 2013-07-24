@@ -1,8 +1,10 @@
 # these are functions which are useful for dealing with MOOG, independent of the MOOG executable
 
 import pdb #@UnusedImport
-from ..dependencies import np, os, time, deepcopy, np_recfunc, re #@UnresolvedImport
-from ..core import yesno, int_to_roman #@UnresolvedImport
+from ..dependencies import np, os, time, deepcopy, np_recfunc, re, xlwt, datetime
+from ..core import yesno, int_to_roman, get_filename, user_choices, SpreadsheetCells
+from ..utils.matching import get_matches
+
 
 
 pass
@@ -2183,4 +2185,792 @@ def abundance_totals (data):
         abundances.append([spe,np.mean(abunds[:,5]),np.std(abunds[:,5]),N])
         
     return np.array(abundances)
+
+default_style = 'font: name Arial; alignment: horizontal left'
+yellow_background = default_style+"; pattern: pattern solid, fore_colour light_yellow;"
+light_gray = default_style+'; pattern: pattern solid, fore_colour gray25;' 
+dark_gray = default_style+'; pattern: pattern solid, fore_colour gray50;'              
+
+                   
+class Ablines (object):
+    width = 8
+    left_width = 6
+    top_height = 6
+    batom = Batom()
+     
+    def __init__ (self,summary_filelist, lines_in=None, compile_linelist=False, wl_tol=0.07,loggf_tol=.01,ep_tol=0.05, notation='l',):
+
+        if xlwt is None:
+            # TODO: make it not dependant on xlwt by changeing how the styles are done
+            raise ImportError("this class needs xlwt to work")
+        
+        
+        self.styles = {'lgray':xlwt.easyxf(light_gray,num_format_str = '#0.0'),
+                      'dgray' :xlwt.easyxf(dark_gray ,num_format_str = '#0.0'),
+                      
+                      'yellow_int'     : xlwt.easyxf(yellow_background, num_format_str = '#0'),
+                      'yellow_float00' : xlwt.easyxf(yellow_background, num_format_str = '#0.00'),
+                      'yellow_float000': xlwt.easyxf(yellow_background, num_format_str = '#0.000'),
+                      
+                      'default_int': xlwt.easyxf(default_style, num_format_str = '#0'),
+                      'default'    : xlwt.easyxf(default_style, num_format_str = '#0.00'),
+                      'default_float000':  xlwt.easyxf(default_style, num_format_str = '#0.000')}       
+               
+    
+            
+        self._check_init_values()
+        
+        # define the tolerances
+        minimum_tol = 1e-13
+        self.tolerances = np.array([float(wl_tol or minimum_tol),
+                                    float(ep_tol or minimum_tol),
+                                    float(loggf_tol or minimum_tol)])
+
+        # define the data dictionary based on files read in
+        self.data = {}
+
+        # if there's a linelist then read it in
+        self.lines_in = lines_in
+        if lines_in is not None:
+            # read in the linelist
+            in_linelist = read_moog_linelist(lines_in)
+            in_linelist = [tuple(x) for x in in_linelist[['wl','spe','ep','loggf']]]
+        
+            # go through each file and parse
+            self.data[lines_in] = [in_linelist,None] # included for linelist but removed later
+    
+        # read in summary files
+        self.file_col_starts = {}
+        if isinstance(summary_filelist,str):
+            try: file_summaryfilelist = open(summary_filelist,'r')
+            except IOError:
+                raise IOError("MOOG abfind summary list file doesn't exist : '"+file_summaryfilelist+"'")
+            summary_files = file_summaryfilelist.readlines()
+            file_summaryfilelist.close()
+        elif isinstance(summary_filelist,(list,tuple,np.ndarray)):
+            summary_files = summary_filelist
+            
+        else:
+            raise ValueError("summary_filelist must be either a file with a "\
+                              "list of MOOG abfind summary files or a list of "\
+                              "those paths as strings")
+
+        for i,sumfile in enumerate(summary_files):
+            if not isinstance(sumfile,str):
+                raise ValueError("recieved non string when expecting filepath")
+            sumfile = sumfile.rstrip()
+            if not os.path.isfile(sumfile):
+                print("File does not exist or is not a file : '"+sumfile+"'")
+                continue
+            self.data[sumfile] = parse_abfind_summary_out(sumfile) # returns lines, header
+            self.file_col_starts[sumfile] = i*self.width+self.left_width
+    
+        
+        if not compile_linelist and lines_in is None:
+            raise ValueError("If you don't want to compile a linelist"\
+                             " from the summary files you must provide"\
+                             "a linelist file in lines_in")
+
+        # get the file based linelist
+        if compile_linelist:
+            files = self.data.keys()
+        else:
+            files = [lines_in]
+        
+        # create the linelist to compare against
+        linelist_list = []
+        for sumfile in files:
+            dat = [tuple(x[:4]) for x in self.data[sumfile][0]]
+            linelist_list += dat
+
+        # TODO (optional): make the linelist a dictionary 
+        #     with the keys = (wl,spe,ep,loggf) and values = fname
+        #     Then you can keep track of the filename         
+        linelist = set()
+        for dat in linelist_list:
+            linelist.add(dat) 
+        
+        if lines_in is not None:
+            del self.data[lines_in]
+
+        # define the linelist and species from the linelist        
+        self.linelist = np.round(np.array(list(linelist)),10)
+        self.species = np.sort(np.unique(np.round(self.linelist[:,1],5)))
+        self._absorption_lines = None # subset of self.linelist based on a species
+        
+        # get desired annotation style
+        if   notation in  ('l','logeps'): abnotation = 'Logeps'
+        elif notation in ('b','bracket'): abnotation = '[X/Fe]'
+        else: abnotation = 'abund'
+        self.abnotation = abnotation
+        
+        # initilaize cells
+        self.cells = SpreadsheetCells()
+
+        # variables for tracking
+        self.current_row = None
+        self.next_row = None    
+        self._current_fname = None
+
+    def _check_init_values (self):
+        if self.top_height < 6:
+            raise ValueError("top_height must be >= 6")
+
+        if self.width < 6: 
+            raise ValueError("file column width must be >= 6")
+        
+        if self.left_width < 5:
+            raise ValueError("left width must be >= 5")
+        
+        if not isinstance(self.batom,Batom):
+            raise TypeError("batom must be a Batom instance")
+        
+    def __advance_next_row (self,num):
+        self.next_row = max(self.next_row,self.current_row+num)
+
+        
+    def _top_left_block (self):
+        if self.current_row is not None:
+            row = self.current_row
+            cells = self.cells 
+        else:
+            row = 0
+            cells = SpreadsheetCells()
+        
+        cells[(row,0)] = ("CREATION DATE:",self.styles['default'])
+        now = datetime.now()
+        cells[(row,2)] = (now.ctime(),self.styles['default'])
+    
+        cells[(row+1,0)] = ("linelist file:",self.styles['default'])
+        cells[(row+1,1)] = (self.lines_in,self.styles['default'])
+    
+        cells[(row+2,0)] = ("# Files:",self.styles['default'])
+        cells[(row+2,1)] = (str(len(self.data)),self.styles['default'])
+    
+        titles = ("#lines=>","Wavelength","EP","Loggf","NOTES")
+        for j in xrange(self.left_width):
+            info = ''
+            if j < len(titles):
+                info = titles[j]
+            row = self.top_height - 1
+            cells[(row,j)] = (info,self.styles['lgray'])
+            
+        if self.current_row is None:
+            return cells
+        self.next_row = self.top_height+1
+         
+    def _top_right_block (self):
+        if self.current_row is not None:
+            row = self.current_row
+            cells = self.cells 
+        else:
+            row = 0
+            cells = SpreadsheetCells()
+                
+        # define headers and converters
+        stellar = [('Teff','teff'),
+                   ('Logg','logg'),
+                   ('[Fe/H]','feh'),
+                   ('Vt','vt')]
+        titles = ("EP","LogGF","EW","LogRW",self.abnotation,"Del Avg")                   
+
+        # go through the files and fill in
+        for k,fname in enumerate(self.data):
+            col_start = self.file_col_starts[fname]
+            cells[(row,col_start)] = (fname,self.styles['default'])
+            
+            if k % 2 == 0 and k != 0: 
+                header_style = self.styles['lgray']
+            else:
+                header_style = self.styles['dgray'] 
+                   
+            # go through all the cells in the column and fill them out
+            for j in xrange(self.width):
+                header_info = ''
+                if j < len(titles): 
+                    header_info= titles[j]
+                
+                info,param='',''
+                col = col_start+j
+                
+                if j < len(stellar):
+                    info = stellar[j][0]
+                    param = str(self.data[fname][1][stellar[j][1]])
+                    
+                cells[(row+2,col)] = (info,self.styles['default'])
+                cells[(row+3,col)] = (param,self.styles['default'])
+                cells[(self.top_height-1,col)] = (header_info,header_style)        
+                                
+        if self.current_row is None:
+            return cells
+
+          
+    def __write_line_data (self,match,match_i,row):
+        
+        # if the match was internal to the data then skip
+        if match_i not in match:
+            return row
+
+        # get the index which isn't the match
+        idx,idx2 = match
+                
+        # if the match is the idx then use the other one for the data
+        if match_i == idx:
+            idx = idx2
+        
+        # get the values to fill into the cells
+        wl,_spe,ep,logg,ew,abund = self._spe_data[self._current_fname][idx]
+        # !IndexError: shouldn't happen, there's an error in the matching
+        diff = self._abund_stats[self._current_fname][0]-abund
+        rew = np.log10((ew/(wl*1000.0)))        
+        values = (ep,logg,ew,rew,abund,diff)
+        
+        # fill in the width of the data for a match
+        for m in xrange(self.width):
+            col = self.file_col_starts[self._current_fname]+m
+            
+            if m < len(values):
+                value = values[m]
+            else:
+                value = ''
+                
+            self.cells[(row,col)] = (value,self.styles['default_float000'])
+            
+        # record how many lines per row
+        cell_id = (row,0)
+        _N,_ = self.cells.get(cell_id,(0,None))
+        self.cells.overwrite(cell_id,(_N + 1,self.styles['default_int']))  
+        return row+1    
+
+    def __file_blocks (self,fname,abline):
+        row = deepcopy(self.current_row)
+        
+        # is there any data for that file
+        if len(self._spe_data[fname]) == 0: 
+            self.__advance_next_row(1)
+            return row
+        
+        # store the current file name for later use
+        self._current_fname = fname
+
+        # match_i is the index for the linedata
+        match_i = len(self._spe_data[fname])
+        match_data = np.vstack((self._spe_data[fname][:,[0,2,3]],abline))        
+        matches = get_matches(match_data,self.tolerances)
+        
+        # if no matches are found
+        if len(matches) == 0: 
+            self.__advance_next_row(1)
+            return row
+        
+        # number of matches removing the 
+        for match in matches:
+            row = self.__write_line_data(match,match_i,row)
+        
+        self.__advance_next_row(row-self.current_row)
+         
+    def __linelist_right_block (self,abline):
+        wl,ep,loggf=abline
+        values = (wl,ep,loggf)
+        style = self.styles['default']
+        for i in xrange(len(values)):
+            col = 1+i
+            self.cells[(self.current_row,col)] = (values[i],style)
+            if i == 0:
+                style = self.styles['default_float000']
+             
+    def __linelist_loop (self,abline):
+        self.next_row = deepcopy(self.current_row)                
+        self.__advance_next_row(1)
+        # add number of lines information, update if necessary
+        cell_id = (self.current_row,0)
+        _N,_ = self.cells.get(cell_id,(0,None))
+        self.cells.overwrite(cell_id,(_N,self.styles['default_int']))
+        
+        # add the linelist header information
+        self.__linelist_right_block(abline)
+        
+        # now add the files
+        for fname in self.data:
+            self.__file_blocks(fname,abline)
+        
+        self.current_row = deepcopy(self.next_row)
+                
+    def __species_header_line (self,spe,spe_idx):
+        
+        self._spe_data = {}
+        self._abund_stats = {}
+        
+        # get the species name
+        ionz = int(round((spe - round(spe))*10))+1
+        spe_name = self.batom[round(spe)][1]+" "+int_to_roman(ionz)
+        
+        # cells for an element block
+        values = ("Element:",spe_name,"N=",np.count_nonzero(spe_idx))
+        for i in xrange(self.left_width):
+            if i < len(values):
+                value = values[i]
+            else:
+                value = ''            
+            self.cells[(self.current_row,i)] = (value,self.styles['yellow_int'])
+        
+        
+        # write out the files        
+        for i,fname in enumerate(self.data):            
+            col_start = self.file_col_starts[fname]
+ 
+            # select file data for that species
+            file_data = self.data[fname][0]
+            self._spe_data[fname] = file_data[file_data[:,1]==spe]
+             
+            # get stats
+            abunds = self._spe_data[fname][:,5]
+            abunds = abunds[np.logical_not(np.isnan(abunds))] 
+            self._abund_stats[fname] = (np.mean(abunds),np.std(abunds),len(abunds))
+                       
+                       
+            # write out the stats for this particular file
+            stats = ("Mean,Std,N=",)+self._abund_stats[fname]
+            style = self.styles['yellow_float00']
+ 
+            for j in xrange(self.width):
+                col = col_start+j
+                if j < len(stats): 
+                    value = stats[j]
+                else:
+                    value = ''
+                    
+                if j == len(stats)-1:
+                    style = self.styles['yellow_int']
+
+                self.cells[(self.current_row,col)] = (value,style)
+
+        self.current_row += 1
+                                   
+    def _species_loop (self,spe):
+        if self.current_row is None:
+            raise ValueError("Must do this with the build loop so that the cells are correct")
+           
+        # get the absorption lines for this species (sorted by wavelength)
+        spe_idx = self.linelist[:,1] == spe
+        lines = self.linelist[spe_idx][:,[0,2,3]]
+        self._absorption_lines = lines[lines[:,0].argsort()]
+        
+        # add the species header line to current line
+        self.__species_header_line(spe,spe_idx)
+        
+        # now go through all the lines for that species
+        for abline in self._absorption_lines:
+            self.__linelist_loop(abline)
+     
+        # TODO: sum up all the values in self.cells for column 0 from the row just below the header
+        #   to this current row
+        #   output to (self.current_row,0)
+        self.current_row += 1
+
+    def build_cells (self):
+        self._check_init_values()
+        
+        # set up the row tracking
+        self.current_row = 0
+        self.next_row = 0
+        self.cells = SpreadsheetCells()
+        
+        # fill in the top blocks
+        self._top_left_block()
+        self._top_right_block()
+        self.cells[(self.top_height,self.left_width-1)] = ("FREEZE HERE",self.styles['default'])
+
+        self.current_row = self.top_height+1
+        
+        # fill in the species blocks
+        Nleft = len(self.species)
+        for i,spe in enumerate(self.species):
+            self._species_loop(spe)
+            Nleft = len(self.species)-i
+            print("Species "+format(spe,'5.1f')+" <-- "+format(Nleft,"5")+" left to compute")
+        
+        # reset the row tracking
+        self.current_row = None
+        self.next_row = None
+         
+    def check_output_file (self,output_xls,clobber=True):
+        """ check that the output file has ".xls" extension and doesn't exist """
+        if not os.path.basename(output_xls).endswith('.xls'): 
+            output_xls += '.xls'
+    
+        if os.path.isfile(output_xls) and not clobber:
+            raise IOError("File exists '"+output_xls+"'")
+
+        return output_xls
+
+    def save (self,output_xls,clobber=True,cells=None):
+        """ save out cells to ".xls" file """
+          
+        # check the output file and add ".xls" if needed      
+        output_xls = self.check_output_file(output_xls, clobber)
+
+        # open up book
+        book=xlwt.Workbook(encoding="utf-8")
+        sheet=book.add_sheet("Line_Comp")
+        
+        if cells is None:
+            cells = self.cells
+     
+        if not isinstance(cells,SpreadsheetCells):
+            raise TypeError("cells must be a SpreadsheetCells object")
+             
+        for cell_id in cells:
+            row,col = cell_id
+            contents,style = cells[cell_id]
+            sheet.write(row,col,contents,style)
+                
+        book.save(output_xls)         
+
+def ablines (summary_filelist, output_xls, lines_in = None, clobber=True, compile_linelist=False, wl_tol=0.02,ep_tol=0.01, loggf_tol=.01, notation='l'):    
+    """
+    Takes a list of MOOG abfind summary files and (optionally) compares to a linelist 
+    to create a excell document for line-by-line comparisons
+    
+    This tool creates an excel spreadsheet for the purpose of lining up lines which are 
+    shared across several MOOG abfind summary files. This allows for the visual comparison
+    of lines between various summary files
+    
+    
+    Parameters
+    ----------
+    summary_filelist : list
+        Each value of the list contains the path to a MOOG abfind summary file
+    output_xls : string
+        This is the path to the output file. If '.xls' is not included as the 
+        exstention then it will be appended
+    lines_in : string or None
+        A MOOG readable linelist (see the function read_moog_linelist). If not
+        given then the comparison linelist will be built from the input
+        summary files
+    clobber : boolean
+        If 'True' and the output_xls file exists then the output file will be
+        overwritten
+    compile_linelist : boolean
+        If 'False' then the lines from the summary files will also be included 
+        in the comparison linelist along with the lines_in. If 'False' then 
+        only the lines_in will be used (NOTE if 'False' and lines_in=None then
+        will raise a ValueError)
+    wl_tol : float
+        The tolerance to compare the wavelength with
+    ep_tol : float
+        The tolerance to compare the excitation potential with
+    loggf_tol : float
+        The tolerance to compare the oscillator strength with
+    notation : ('l','logeps','b','bracket')
+        This determines whether the output will be in logeps format or [X/Fe]
+        
+    Returns
+    -------
+    cells : SpreadsheetCells
+        This is a subclass of a dictionary with keys = (row,column) and 
+        values = (value,style) for creating a spreadsheet
+    
+    Raises
+    ------
+    ValueError : If compile_linelist==False and lines_in=None because
+        there is nothing to compare with
+    
+    Notes
+    -----
+    __1)__ If a line appears twice in a summary file then it will be
+        included twice in the output on separate lines
+    
+
+    Examples
+    --------
+    >>> cells = ablines("filelist","comparison.xls", lines_in="mylinelist.txt", 
+                        compile_linelist=True, wl_tol=0, loggf_tol=0, ep_tol=0)
+    >>>
+    
+    
+    
+    Modification History
+    --------------------
+    20 July, 2013 : Dylan Gregersen
+        - revised from original using an Ablines class.
+        
+    """
+    ablines_ = Ablines(summary_filelist, lines_in, 
+                       compile_linelist=compile_linelist, 
+                       wl_tol=wl_tol, ep_tol=ep_tol, loggf_tol=loggf_tol, notation=notation)
+    ablines_.build_cells()
+    ablines_.save(output_xls,clobber)
+    return ablines_.cells
+
+def display_abfind_summary_out (summary_out,notation='l',display=True):
+    """
+    Displays a summary of the information in the MOOG abfind summary out file
+    
+    The MOOG abfind driver outputs a summary file of the element abundance for 
+    particular absorption lines. This calls a function to parse that file and 
+    exctract data. Then calculates mean abundances (and stdev) from all the 
+    lines for a particular species. The information is displayed to the 
+    screen. 
+    
+    
+    Parameters
+    ----------
+    summary_out : string
+        Provides the path to a MOOG abfind summary file
+    notation : 'l','logeps','b','bracket'
+        The notation for the abundance to be output in. Logeps is noramlized 
+        to H at 10**12 and bracket is normalized to the solar abundance 
+        ratio to Fe [X/Fe]
+    display : boolean
+        If 'True' then this function will automatically display the abundances 
+        to the screen. If 'False' then will just return the string for display
+    
+    Returns
+    -------
+    display_string : string
+        The single string which is printed to the string (has return characters)
+    
+    Raises
+    ------
+    TypeError : If notation is not a string
+    ValueError : If variable notation is not one of the acceptable values
+        
+    Notes
+    -----
+    __1)__ 
+    
+    
+    
+    Examples
+    --------
+    >>> display_string = display_abfind_summary_out("summary_out.txt",notation='b')
+================================================================================
+
+Abundances from : /full_path_to_file/summary_out.txt
+    5500.0      4.000     -1.900      1.000
+
+[Fe/H] =     -1.946
+
+--------------------------------------------------------------------------------
+         Z    element     [X/Fe]       sigma     N        RMS
+--------------------------------------------------------------------------------
+      11.0    Na I         0.301       0.475     2      0.336
+      12.0    Mg I         0.092       0.072     5      0.032
+      14.0    Si I         0.536       0.000     1      0.000
+      20.0    Ca I         0.209       0.071    18      0.017
+      21.1    Sc II       -0.115       0.123    13      0.034
+      22.0    Ti I         0.071       0.073    18      0.017
+      22.1    Ti II        0.236       0.138    17      0.034
+      23.0    V I         -0.210       0.021     3      0.012
+      24.0    Cr I        -0.022       0.414    40      0.065
+      24.1    Cr II        0.123       0.123     6      0.050
+      25.0    Mn I        -0.060       0.628    14      0.168
+      26.0    Fe I        -0.025       0.107    82      0.012
+      26.1    Fe II        0.033       0.123    19      0.028
+      28.0    Ni I        -0.067       0.149    20      0.033
+      30.0    Zn I        -0.104       0.010     2      0.007
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+AVERAGES==>
+         Z    element     [X/Fe]       sigma     N        RMS
+--------------------------------------------------------------------------------
+      24.0    Cr           0.111       0.432     2      0.305
+      26.0    Fe           0.000       0.163     2      0.115
+      22.0    Ti           0.106       0.156     2      0.110
+================================================================================
+[Fe/H] =     -1.946
+
+Abundances for  15 elements in file: 'summary_out.txt'
+
+    >>>
+    >>>
+    
+    """
+
+
+    batom = Batom()
+
+    notation_err = "notation must be 'l','logeps' or 'b','bracket'"
+    if not isinstance(notation,str):
+        raise TypeError(notation_err)
+    
+    logeps=True
+    if  notation in ('l','logeps'):
+        notation = 'Logeps'
+    elif notation in ('b','bracket'):
+        notation = '[X/Fe]'
+        logeps=False 
+    else:
+        raise ValueError(notation_err)
+    
+    data,header = parse_abfind_summary_out(summary_out)
+    species =  np.sort(np.unique(data[:,1]))
+    # species_names = [batom[x][1] for x in species]
+    
+    abundances = abundance_totals(data)
+    averages = {}
+    
+    for spe in species:
+        element = int(round(spe))
+        mask = np.round(abundances[:,0]) == element
+        if np.count_nonzero(mask) <= 1:
+            continue
+        abunds = abundances[mask]
+        M = np.sum(abunds[:,1]/(abunds[:,2]**2))/(np.sum(1.0/abunds[:,2]**2))
+        ERR = np.sqrt(np.sum(abunds[:,2]**2))
+        N = len(abunds)
+        averages[element] = [spe,M,ERR,N]
+ 
+    feh_abunds = abundances[np.round(abundances[:,0])==26][:,1]
+    if len(feh_abunds)==0: 
+        feh = np.nan
+    else:
+        if 26 in averages:
+            feh = averages[26][1]
+        else:   
+            feh = np.mean(feh_abunds)
+        feh -= batom[26.0][-1]
+    
+    if not logeps:
+        if feh == np.nan:
+            raise ValueError("Can't convert to [X/Fe] because no Fe abundances were found")
+        abundances[:,1]= batom.convert_to_xfe(abundances[:,0], abundances[:,1], feh)
+        for element in averages:
+            averages[element][1] = batom.convert_to_xfe(element, averages[element][1], feh)
+        
+    lines = []
+    lines.append("="*80)
+    lines.append("")
+    lines.append("Abundances from : "+os.path.abspath(summary_out))
+    stellar = (header['teff'],header['logg'],header['feh'],header['vt'])
+    lines.append("{0:10.1f} {1:10.3f} {2:10.3f} {3:10.3f}".format(*stellar))
+    lines.append("")
+    lines.append("[Fe/H] = "+format(feh,'10.3f'))
+    lines.append("")
+    lines.append("-"*80)
+    # ep, abund sigma
+    titles = ('Z','element',str(notation),"sigma","N","RMS")
+    format_string = "{0:>10.1f}    {1:<7} {2:>10.3f}  {3:>10.3f} {4:>5} {5:>10.3f}"
+    title_string =  "{0:>10}    {1:<7} {2:>10}  {3:>10} {4:>5} {5:>10}"
+    
+    lines.append(title_string.format(*titles))
+    lines.append("-"*80) 
+    for abund in abundances:
+        spe,M,STD,N = abund
+        rms = STD/np.sqrt(N)
+        lines.append(format_string.format(spe,batom.species_name(spe),M,STD,int(N),rms))
+        
+    lines.append("- "*35)
+    lines.append("AVERAGES==>")
+    lines.append(title_string.format(*titles))
+    lines.append("-"*80)
+    for element in averages:
+        _,M,STD,N = averages[element]
+        rms = STD/np.sqrt(N)
+        lines.append(format_string.format(element,batom.species_name(element),M,STD,int(N),rms))
+        
+    lines.append("="*80) 
+    lines.append("[Fe/H] = "+format(feh,'10.3f'))
+    lines.append("")
+    N = len(species)
+    lines.append("Abundances for "+format(N,"3")+" elements in file: '"+summary_out+"'")
+    
+    output_string = "\n".join(lines)+"\n"*2
+    if display:
+        print(output_string)
+    return output_string
+
+
+# ########################################################################### #
+ 
+def run_ablines ():
+    """
+    Interactively asks the user for the inputs to the ablines function and then runs it
+    see help(ablines) for more information
+    
+    This works:
+    
+    * provide filenames(s) of summary file(s)
+    * provide input linelist (optional to give None)
+    * provide the tolerances for the matching
+    * give the notation for the abundance (logeps or [X/Fe] bracket)
+    * provide an output file path
+    
+    then the program runs abget.ablines with those inputs
+    
+    """
+    # get the input filelist of MOOG summary files
+    enter_multi = yesno("Enter multiple MOOG abfind summary files (or give a file with list of them)? ","n")
+    if enter_multi:
+        summary_filelist = get_filename("Enter MOOG abfind summary files :\n",enter_multi=True,find_filename=True)
+    else:
+        summary_filelist = get_filename("Enter file with list of MOOG abfind summary files :\n",find_filename=True)[0]
+    
+    # raise error if none were given
+    if summary_filelist is None: 
+        raise ValueError("no files give for the summary_filelist")
+    
+    # Get the input linelist (if wanted)    
+    lines_in = None
+    if yesno("Compare against a linelist?","y"):
+        lines_in, = get_filename("Enter a MOOG formatted linelist:\n",find_filename=True)
+    
+    
+    # should the summary files lines be included
+    if lines_in is None:
+        compile_linelist=True
+    else:
+        compile_linelist = yesno("Compile comparison lines from the summary files as well as the linelist?","y")
+    
+    # get the tolerance input
+    while True:
+        tols = raw_input("Please give the tolerances for wl, ep, and loggf separated by spaces (default=> 0 0 0):\n ")
+        if not tols:
+            wl_tol,ep_tol,loggf_tol = 0.0,0.0,0.0
+            break
+        try: wl_tol,ep_tol,loggf_tol = [float(x or 0.0) for x in tols.split()]
+        except TypeError:
+            print("Please give the tolerances wl, ep, and loggf seporated by spaces or press enter for default")
+    
+    # what type of notation should be given
+    if yesno("Give output in logeps notation ('no' gives [X/Fe])? ",'y'):
+        notation = 'l'
+    else:
+        notation = 'b'
+
+    # get the output filename
+    output_xls, = get_filename("Give the output excel filename :",'w',find_filename=True)
+    
+    # run the ablines function        
+    ablines(summary_filelist, output_xls, 
+            lines_in = lines_in, clobber=True, 
+            compile_linelist=compile_linelist, notation= notation,
+            wl_tol=wl_tol,ep_tol=ep_tol, loggf_tol=loggf_tol)
+    
+def run_display_abfind_summary_out ():
+    """
+    Takes a MOOG summary file and give a useful output format using the 
+    function display_abfind_summary_out
+    
+    This function works in this order:
+    
+    * provide the summary file to view
+    * provide the notation to be used (logeps or [X/Fe] bracket)
+    
+    then runs function display_abfind_summary_out
+    
+    """
+    # enter the filename
+    summary_out, = get_filename("Give name of MOOG abfind summary file : ",find_filename=True)
+    if summary_out is None:
+        raise ValueError("No file given to read")
+    
+    choices = ('l','logeps','b','bracket')
+    notation = user_choices(choices,question="What type of abundance notation? :",default=0)    
+    notation = choices[notation[0]]
+    
+    _ = display_abfind_summary_out(summary_out,notation)
+
+    
+
 
