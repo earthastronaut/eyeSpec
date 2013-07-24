@@ -5,7 +5,7 @@ from eyeSpec.app_edit_data import InteractiveDataEditor, CanvasFrame
 from eyeSpec.dependencies import np, os, sys, time, iget, deepcopy, pdb
 from eyeSpec.dependencies import scipy, math
 from eyeSpec.dependencies import plt, FormatStrFormatter, savefig
-from eyeSpec.dependencies import pyfits, pickle
+from eyeSpec.dependencies import fits, pickle
 from eyeSpec.dependencies import wx, FigureCanvas, NavigationToolbar2Wx, Figure, Button, Path    
 
 

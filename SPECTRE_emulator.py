@@ -173,11 +173,11 @@ def hd (input='manual file',number_lines=10,verbose=True,prompt_lines=True,retur
 
     if input == 'manual file':
         file = getfilename()
-        header = pyfits.getheader(file)
+        header = fits.getheader(file)
 
     elif type(input).__name__ == 'str' and input!='manual file':
         file = input
-        header = pyfits.getheader(file)
+        header = fits.getheader(file)
 
     elif input.__class__.__name__ == 'eyeSpec_spec':
         file = "OBJ of file:"+str(input.filename)

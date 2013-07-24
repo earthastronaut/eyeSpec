@@ -9,7 +9,7 @@
 
 import pdb #@UnusedImport
 from .core import var_2_inv_var, query_fits_header, eyeSpec_spec
-from .dependencies import np, os, time, deepcopy, scipy, pyfits, pickle
+from .dependencies import np, os, time, deepcopy, scipy, fits, pickle
 
 
 pass
@@ -259,7 +259,7 @@ def pts_2_phys_pixels (pts,bzero=1,bscale=1):
     bzero = query_fits_header(prihdr,'BZERO',noval=1) # for scaled integer data, here is the zero point
     bscale = query_fits_header(prihdr,'BSCALE',noval=0) # for scaled integer data, here is the multiplier
    
-    I'm pretty sure pyfits uses these when it reads in the data so I don't need to
+    I'm pretty sure fits uses these when it reads in the data so I don't need to
    
     """
     if bzero != 0 or bscale !=1:
@@ -276,24 +276,24 @@ def check_for_txt_format (filename,**np_kwargs):
     except: return False, None
     return True, txt_data
 
-def _check_header_type (pyfits_header):
-    if repr(type(pyfits_header)) != "<class 'pyfits.header.Header'>": 
-        raise ValueError("pyfits_header input not of type <class 'pyfits.header.Header'> :"+repr(type(pyfits_header)))
+def _check_header_type (fits_header):
+    if repr(type(fits_header)) != "<class 'fits.header.Header'>": 
+        raise ValueError("fits_header input not of type <class 'fits.header.Header'> :"+repr(type(fits_header)))
 
 pass
 #################################################################################
 # functions to extract wavelength solution coefficients and equation type from
-# a pyfits header
+# a fits header
 
-def coeff_from_ctype1 (pyfits_header):
-    _check_header_type(pyfits_header)
+def coeff_from_ctype1 (fits_header):
+    _check_header_type(fits_header)
     wlcoeff = WSC()
     #==========================================================================#
 
-    ctype1 = query_fits_header(pyfits_header,'CTYPE1',noval='')
-    crval1 = query_fits_header(pyfits_header,'CRVAL1',noval=0) # for linear dispersions, the starting wavelength
-    crpix1 = query_fits_header(pyfits_header,'CRPIX1',noval=0) # for linear dispersions, the pixle to which CRVAL1 refers
-    cdelt1 = query_fits_header(pyfits_header,'CDELT1',noval=0) # for linear dispersion, here is the dispersion
+    ctype1 = query_fits_header(fits_header,'CTYPE1',noval='')
+    crval1 = query_fits_header(fits_header,'CRVAL1',noval=0) # for linear dispersions, the starting wavelength
+    crpix1 = query_fits_header(fits_header,'CRPIX1',noval=0) # for linear dispersions, the pixle to which CRVAL1 refers
+    cdelt1 = query_fits_header(fits_header,'CDELT1',noval=0) # for linear dispersion, here is the dispersion
     
     start_pix = 1.0 - crpix1.val # this is because I start the pixel counting at 1 later
 
@@ -313,16 +313,16 @@ def coeff_from_ctype1 (pyfits_header):
               
     return wlcoeff
          
-def coeff_from_crvl (pyfits_header):
-    _check_header_type(pyfits_header)
+def coeff_from_crvl (fits_header):
+    _check_header_type(fits_header)
     wlcoeff = WSC()
 
     def get_for_order (ordi):
         ordi = format(ordi,'02')
         #==========================================================================#
-        linintrp = query_fits_header(pyfits_header,'LININTRP') # string with infor about the type of linear interpretation
-        crvl1_ = query_fits_header(pyfits_header,'CRVL1_'+ordi,noval=1) # for linear dispersions, the starting wavelength
-        cdlt1_ = query_fits_header(pyfits_header,'CDLT1_'+ordi,noval=0) # for linear dispersions, the pixle to which 
+        linintrp = query_fits_header(fits_header,'LININTRP') # string with infor about the type of linear interpretation
+        crvl1_ = query_fits_header(fits_header,'CRVL1_'+ordi,noval=1) # for linear dispersions, the starting wavelength
+        cdlt1_ = query_fits_header(fits_header,'CDLT1_'+ordi,noval=0) # for linear dispersions, the pixle to which 
         
         if crvl1_.found and cdlt1_.found:
             if linintrp.found and linintrp.val.find('linear') == -1: print "WARNING: KEYWORD LININTRP HAS NO REFERENCE TO 'linear' BUT PERFORMING A LINEAR DISPERSION"
@@ -342,15 +342,15 @@ def coeff_from_crvl (pyfits_header):
         
     return wlcoeff
 
-def coeff_from_wcs (pyfits_header, apply_WCS_rv=False):
-    _check_header_type(pyfits_header)
+def coeff_from_wcs (fits_header, apply_WCS_rv=False):
+    _check_header_type(fits_header)
     wlcoeff = WSC()
 
     #==========================================================================#
-    wat0_001 = query_fits_header(pyfits_header,'WAT0_001')
-    wat1_001 = query_fits_header(pyfits_header,'WAT1_001') 
-    # wat2_001 = query_fits_header(pyfits_header,'WAT2_001') 
-    wat3_001 = query_fits_header(pyfits_header,'WAT3_001') 
+    wat0_001 = query_fits_header(fits_header,'WAT0_001')
+    wat1_001 = query_fits_header(fits_header,'WAT1_001') 
+    # wat2_001 = query_fits_header(fits_header,'WAT2_001') 
+    wat3_001 = query_fits_header(fits_header,'WAT3_001') 
 
     if not wat0_001.found: return wlcoeff
     # found the wat0_001 keyword
@@ -371,7 +371,7 @@ def coeff_from_wcs (pyfits_header, apply_WCS_rv=False):
         
     #========== now it is on system mutlispec
     wat1_001_dict = {}
-    for val in pyfits_header['wat1_001'].split():
+    for val in fits_header['wat1_001'].split():
         val = val.split("=")
         wat1_001_dict[val[0]] = val[1]
 
@@ -392,15 +392,15 @@ def coeff_from_wcs (pyfits_header, apply_WCS_rv=False):
     #======== now has 'wtype=multispec label=Wavelength units=angstroms'        
     
     #        ordi = format(ordi,'02')
-    #        wat2_0 = query_fits_header(pyfits_header,'WAT2_0'+ordi,'02'))
+    #        wat2_0 = query_fits_header(fits_header,'WAT2_0'+ordi,'02'))
     #        if not wat2_0.found: return True
     #    
 
     def unpack_WCS_multispec (root_keyword):     
         # creates order_disp which is a dictionary that has the dispersion for a given order, this would be inefficient to make the whole thing every time when you only need one value every time it's run. But with the way IRAF layed out these WAT2 stuff and how my code is written it's sort of necessary
         wat_str = ''
-        for key in pyfits_header.keys():
-            if key.find(root_keyword) == 0: wat_str += format(pyfits_header[key],'68')
+        for key in fits_header.keys():
+            if key.find(root_keyword) == 0: wat_str += format(fits_header[key],'68')
         
         cut_str =  wat_str[:30].split()
         if cut_str[0].lower() != 'wtype=multispec':
@@ -563,8 +563,8 @@ def coeff_from_wcs (pyfits_header, apply_WCS_rv=False):
             
         elif dcflag == 1 or dcflag == 2:
             polytype = order_coeff[ordi][11]
-            ltv = query_fits_header(pyfits_header,'LTV'+str(LTV_dimn[0]),noval=0) # IRAF auxiliary wavelenth solution parameters 
-            ltm = query_fits_header(pyfits_header,'LTM'+str(LTV_dimn[0])+'_'+str(LTV_dimn[0]),noval=0) # IRAF auxiliary wavelenth solution parameters 
+            ltv = query_fits_header(fits_header,'LTV'+str(LTV_dimn[0]),noval=0) # IRAF auxiliary wavelenth solution parameters 
+            ltm = query_fits_header(fits_header,'LTM'+str(LTV_dimn[0])+'_'+str(LTV_dimn[0]),noval=0) # IRAF auxiliary wavelenth solution parameters 
         
             if (ltv.found or ltm.found): print ("IRAF WCS: found WAT keywords with system=multispec and found dcflag = "+str(dcflag)+" for order "+str(ordi)+" and LTV and LTM keywords which I don't know what to do with")
         
@@ -627,12 +627,12 @@ def coeff_from_wcs (pyfits_header, apply_WCS_rv=False):
     wlcoeff.extra = ['used header to get parameters and coefficients, function: '+equ_type+', to apply wl = function(pts)',order_coeff]
     return wlcoeff
 
-def coeff_from_w0 (pyfits_header):
-    _check_header_type(pyfits_header)
+def coeff_from_w0 (fits_header):
+    _check_header_type(fits_header)
     wlcoeff = WSC()
 
-    w0 = query_fits_header(pyfits_header,'W0',noval=0) # for linear dispersions, starting wavelength
-    wpc = query_fits_header(pyfits_header,'WPC',noval=0) # for linear dispersion, here is th dispersion
+    w0 = query_fits_header(fits_header,'W0',noval=0) # for linear dispersions, starting wavelength
+    wpc = query_fits_header(fits_header,'WPC',noval=0) # for linear dispersion, here is th dispersion
     if w0.found and wpc.found:
         coeff = [w0,wpc]
         wlcoeff.extra = 'used header to get W0 and WPC, to apply wl = W0 + WPC*pts'
@@ -641,8 +641,8 @@ def coeff_from_w0 (pyfits_header):
         print "!! FIRST TIME WITH W0 AND WPC, CHECK THE OUTPUT OF WAVELENGTH VS FLUX"
     return wlcoeff
 
-def coeff_basic_linear (pyfits_header,wlsol=True):
-    _check_header_type(pyfits_header)
+def coeff_basic_linear (fits_header,wlsol=True):
+    _check_header_type(fits_header)
     wlcoeff = WSC()
     #==========================================================================#
     if wlsol:
@@ -657,14 +657,14 @@ def coeff_basic_linear (pyfits_header,wlsol=True):
     wlcoeff.add_coeffs([0,1])
     return wlcoeff
 
-def coeff_from_makee_wv (pyfits_header):
-    _check_header_type(pyfits_header)
+def coeff_from_makee_wv (fits_header):
+    _check_header_type(fits_header)
     #==========================================================================#
     wlcoeff = WSC()
 
     def get_for_order (order_id):
-        WV_0_ = query_fits_header(pyfits_header,'WV_0_'+format(int(order_id),'02')) # first 4 coefficients
-        WV_4_ = query_fits_header(pyfits_header,'WV_4_'+format(int(order_id),'02')) # second 4 coefficients
+        WV_0_ = query_fits_header(fits_header,'WV_0_'+format(int(order_id),'02')) # first 4 coefficients
+        WV_4_ = query_fits_header(fits_header,'WV_4_'+format(int(order_id),'02')) # second 4 coefficients
         
         if not WV_0_.found: return True
         
@@ -686,13 +686,13 @@ def coeff_from_makee_wv (pyfits_header):
     #==========================================================================#   
     return wlcoeff
 
-def coeff_from_makee_c0 (pyfits_header):
-    _check_header_type(pyfits_header)
+def coeff_from_makee_c0 (fits_header):
+    _check_header_type(fits_header)
     wlcoeff = WSC()
     #==========================================================================#
     def get_from_order (order_id):
-        CO_0_ = query_fits_header(pyfits_header,'CO_0_'+format(int(order_id),'02')) # first 4 coefficients
-        CO_4_ = query_fits_header(pyfits_header,'CO_4_'+format(int(order_id),'02')) # second 4 coefficients
+        CO_0_ = query_fits_header(fits_header,'CO_0_'+format(int(order_id),'02')) # first 4 coefficients
+        CO_4_ = query_fits_header(fits_header,'CO_4_'+format(int(order_id),'02')) # second 4 coefficients
             
         if CO_0_.found or CO_4_.found: 
             print "WARNING: KEYWORDS",'CO_0_'+format(int(order_id),'02'),"AND",'CO_4_'+format(int(order_id),'02'),"FOUND BUT I DON'T KNOW WHAT TO DO WITH THEM"
@@ -714,17 +714,17 @@ def coeff_from_makee_c0 (pyfits_header):
          
     return wlcoeff
 
-def coeff_from_SPECTRE (pyfits_header,get_hist=False):
-    _check_header_type(pyfits_header)
+def coeff_from_SPECTRE (fits_header,get_hist=False):
+    _check_header_type(fits_header)
     wlcoeff = WSC()
     #==========================================================================#
     
-    if not query_fits_header(pyfits_header,'HISTORY',noval=0).found: return wlcoeff # old SPECTRE-stype dispersion information
+    if not query_fits_header(fits_header,'HISTORY',noval=0).found: return wlcoeff # old SPECTRE-stype dispersion information
     history_lines = []
     spectre_history = {}
     kount = 0
-    for i in range(len(pyfits_header.ascardlist())):
-        line=str(pyfits_header.ascardlist()[i]).rstrip()
+    for i in range(len(fits_header.ascardlist())):
+        line=str(fits_header.ascardlist()[i]).rstrip()
         if line[0:8] == 'HISTORY ':
             history_lines.append(line)
             
@@ -745,11 +745,11 @@ def coeff_from_SPECTRE (pyfits_header,get_hist=False):
                 line = line.replace('D','e')
                 coeff[:3] = np.array([line[26:44],line[44:62],line[62:80]],dtype=float)
 
-                line2= str(pyfits_header.ascardlist()[i+1]).rstrip().replace('D','e')
+                line2= str(fits_header.ascardlist()[i+1]).rstrip().replace('D','e')
                 if line2[0:8] != 'HISTORY ': raise IOError('EXPECTED NEXT LINE TO HAVE TAG HISTORY')
                 coeff[3:6] = np.array([line2[26:44],line2[44:62],line2[62:80]],dtype=float)
 
-                line3= str(pyfits_header.ascardlist()[i+2]).rstrip().replace('D','e')
+                line3= str(fits_header.ascardlist()[i+2]).rstrip().replace('D','e')
                 if line3[0:8] != 'HISTORY ': raise IOError('EXPECTED NEXT LINE TO HAVE TAG HISTORY')
                 disp_info = np.array([line3[26:44],line3[44:62],line3[62:80]],dtype=float)
 
@@ -796,7 +796,7 @@ pass
 # Functions to do all the coefficient types above and then resolve which
 # are more important than others
 
-def wlsoln_coeff_from_header (pyfits_header, apply_WCS_rv=False, preferred=None, output='sel'):
+def wlsoln_coeff_from_header (fits_header, apply_WCS_rv=False, preferred=None, output='sel'):
     """
     This uses the header and tries out all possible functions for getting the wavelength solution coefficients
     
@@ -806,43 +806,43 @@ def wlsoln_coeff_from_header (pyfits_header, apply_WCS_rv=False, preferred=None,
     cc = {}
     #========================================================================#
     # linear dispersion
-    cc['linear'] = coeff_basic_linear(pyfits_header)
+    cc['linear'] = coeff_basic_linear(fits_header)
 
     #========================================================================#
     # using keywords ctype, crval, crpix, cdelt
-    cc['ctype1'] = coeff_from_ctype1(pyfits_header)
+    cc['ctype1'] = coeff_from_ctype1(fits_header)
 
     #========================================================================#
     # linear dispersion using keywords linintrp, crvl1_?, cdlt1_?
     # from IRAF, order by order  !! do I need to look up what the 1_ means?
     # some of these are doubled by WAT0_001 stuff
-    cc['crvl'] = coeff_from_crvl(pyfits_header)
+    cc['crvl'] = coeff_from_crvl(fits_header)
     # if preferred_disp == 'any' or preferred_disp == 'linear' or preferred_disp == 'crvl' or preferred_disp == 'makee linear':
   
     #========================================================================#
     # IRAF WCS keywords WAT?_001 
     #if preferred_disp == 'any' or preferred_disp == 'IRAF_WCS':
-    cc['wcs'] = coeff_from_wcs(pyfits_header,apply_WCS_rv)
+    cc['wcs'] = coeff_from_wcs(fits_header,apply_WCS_rv)
 
     #========================================================================#
     # linear dispersion for keywords w0 and wpc
-    cc['w0'] = coeff_from_w0(pyfits_header)
+    cc['w0'] = coeff_from_w0(fits_header)
     #if preferred_disp == 'any' or preferred_disp == 'linear' or preferred_disp == 'w0':
 
     #========================================================================#
     # MAKEE type dispersion using keywords co_0_? and co_4_?
     # I'm not sure what type of coefficients these are !!
-    #cc['co_0'] = coeff_from_makee_c0(pyfits_header)
+    #cc['co_0'] = coeff_from_makee_c0(fits_header)
 #     if preferred_disp == 'any' or preferred_disp == 'makee' or preferred_disp == 'co_0':
 
     #========================================================================#
     # MAKEE coeffificients using keywords wv_0_? and wv_4_?
-    cc['wv_0'] = coeff_from_makee_wv(pyfits_header)
+    cc['wv_0'] = coeff_from_makee_wv(fits_header)
     #if preferred_disp == 'any' or preferred_disp == 'makee' or preferred_disp == 'wv_0':
 
     #========================================================================#
     # spectre type dispersion
-    cc['spectre'] = coeff_from_SPECTRE(pyfits_header)
+    cc['spectre'] = coeff_from_SPECTRE(fits_header)
     #if preferred_disp == 'any' or preferred_disp == 'spectre':
 
     #========================================================================#
@@ -979,8 +979,8 @@ pass
 #            # !! could create a system which has three columns (wavelenght,data,inv_varience)
 #
 #        # create new header
-#        new_header = pyfits.PrimaryHDU()
-#        hdulist = pyfits.HDUList([new_header])
+#        new_header = fits.PrimaryHDU()
+#        hdulist = fits.HDUList([new_header])
 #        prihdr = hdulist[0].header
 #
 #        # add/adjust fits header
@@ -1087,8 +1087,8 @@ MODIFICATION HISTORY:
     inv_var = var_2_inv_var(var)
           
     # create new header
-    new_header = pyfits.PrimaryHDU()
-    hdulist = pyfits.HDUList([new_header])
+    new_header = fits.PrimaryHDU()
+    hdulist = fits.HDUList([new_header])
     prihdr = hdulist[0].header
     
     # add/adjust fits header
@@ -1189,7 +1189,7 @@ OUTPUTS:
 DEPENDENCIES:
     External Modules Required
     =================================================
-    numpy, os, pyfits
+    numpy, os, fits
    
     External Functions and Classes Required
     =================================================
@@ -1245,11 +1245,11 @@ MODIFICATION HISTORY:
     
 
     #### now check how it behaves as a fits file
-    if non_std_fits: hdulist = pyfits.open(filename)
+    if non_std_fits: hdulist = fits.open(filename)
     else:
-        # give standard pyfits readin a try
-        try: hdulist = pyfits.open(filename)
-        except: raise IOError("PYFITS DOES NOT LIKE THE FILE YOU GAVE ('"+filename+"'), TO SEE WHAT ERROR IT GIVES TRY: hdulist = pyfits.open('"+filename+"')")
+        # give standard fits readin a try
+        try: hdulist = fits.open(filename)
+        except: raise IOError("PYFITS DOES NOT LIKE THE FILE YOU GAVE ('"+filename+"'), TO SEE WHAT ERROR IT GIVES TRY: hdulist = fits.open('"+filename+"')")
 
     #### open up fits file ##############################
     
@@ -1640,7 +1640,7 @@ def readin_apogee (filename,use_row=1):
     
         return eyeSpec_spec(wl,data,inv_var,header)
 
-    headeru = pyfits.open(filename)
+    headeru = fits.open(filename)
     header = headeru[hdu_header].header
     
     data_out = _get_obj(filename,header,use_order,hdu_flux,hdu_err,**readin_kwargs)
@@ -1803,7 +1803,7 @@ def readin_hst (filename,get_data=False):
     """
     format_error = "Unexpected HST format for fits file. Please use the X1D"
     
-    try: hdulist = pyfits.open(filename)
+    try: hdulist = fits.open(filename)
     except: raise ValueError(format_error)
     
     if len(hdulist) != 2: raise ValueError(format_error)

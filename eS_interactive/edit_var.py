@@ -9,7 +9,7 @@ if __name__ != '__main__':
     from eyeSpec.linefinder_dsg import continuum_finder
     from eyeSpec.dependencies import (np, os, sys, time, iget, deepcopy, pdb, scipy, math,
                                       plt, FormatStrFormatter, savefig,
-                                      pyfits, pickle,
+                                      fits, pickle,
                                       wx, FigureCanvas, NavigationToolbar2Wx, Figure, Button, Path)
 
     
