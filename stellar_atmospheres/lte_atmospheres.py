@@ -5,7 +5,7 @@
 from ..dependencies import  np, os, subprocess #@UnresolvedImport
 from ..core import get_filename #@UnresolvedImport
 from ..stellar_atmospheres import executables #@UnresolvedImport
-from .moog_utils import get_model_name, load_Batom
+from .moog_utils import get_model_name, Batom
 
 pass
 #=============================================================================#
@@ -221,7 +221,7 @@ def convert_atlas12_for_moog (atlas_out_file,new_moog_file=None,clobber=False,in
     if new_moog_file is not None:
         if os.path.exists(new_moog_file) and not clobber: raise IOError("File already exists: '"+new_moog_file+"'")   
 
-    batom = load_Batom('by Z')
+    batom = Batom()
     
     def np_vstack_append (arr,item):
         dtype = arr.dtype.name    

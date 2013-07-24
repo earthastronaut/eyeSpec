@@ -2,7 +2,7 @@
 
 import pdb #@UnusedImport
 from ..dependencies import np, os, time, deepcopy, np_recfunc, re #@UnresolvedImport
-from ..core import yesno #@UnresolvedImport
+from ..core import yesno, int_to_roman #@UnresolvedImport
 
 
 pass
@@ -31,63 +31,85 @@ def user_get_smoothing_func_pars (smoothing_func_pars):
         output[key] = value
     return output
 
-def load_Batom(return_as='list'):
+class Batom (object):
     """
-PURPOSE:
-    This has the data from the file Batom.f writen by Chris Sneden in MOOG
+    
+    loads the data from the file Batom.f written by Chris Sneden in MOOG
     "'solar' abundance set of Anders and Grevesse (1989, Geochim. Cosmichim. Acta, 53, 197" 
                       - from WRITEMOOG (http://www.as.utexas.edu/~chris/codes/WRITEMOOG.ps)
-CATEGORY:
-    MOOG based functions
-
-INPUT ARGUMENTS:
-    return_as : (string) Determine the format you want the data in
-        'list' - Returns a list with columns [Z, element_name_short, element_name_long, solar_abundance_logeps]
-        'array'- Returns a numpy array with columns [Z,solar_abundance_logeps]
-        'by Z' - Returns a dictionary with keys = Z and entries give as the list columns
-        'by el'- Returns a dictionary with keys = element_name_short and list columns as values
-
-INPUT KEYWORD ARGUMENTS:
-    None
-
-OUTPUTS:
-    list, dictionary, ndarray : depending on return_as input argumen
-
-
-DEPENDENCIES:
-   External Modules Required
-   =================================================
-    numpy (if you want 'array' return_as)
-   
-   External Functions and Classes Required
-   =================================================
-   None
        
-NOTES:
-       (1) For more information see WRITEMOOG (http://www.as.utexas.edu/~chris/codes/WRITEMOOG.ps)
-
-EXAMPLE:
-    >>> batom = load_Batom('list')
-    >>> print batom[0]
+    This creates a batom object which can be access via a getitem call 
+    
+    Parameters
+    ----------
+    none
+    
+    Attributes
+    -------
+    batom : list
+        The primary list which the data is stored
+    batom_by_el : dictionary
+        A dictionary of the self.batom information with element names as keys
+    batom_by_z : dictionary
+        A dictionary of the self.batom information with proton number as keys
+    elements : list
+        Returns a list of all the element names
+    array : ndarray
+        Returns a numpy array with columns (Z,abundance)
+        
+    
+    Raises
+    ------
+    KeyError : If the key given to the getitem call isn't correct
+    
+    
+    Notes
+    -----
+    __1)__ For more information see WRITEMOOG (http://www.as.utexas.edu/~chris/codes/WRITEMOOG.ps)
+    __2)__ Can use a getitem call (e.g. batom[item]) to access elements (an integer doesn't map to the
+        index in main self.batom list but to a element of that Z)
+    __3)__ getitem access works for element names (case-insensitive and can include species info with a space)
+        it also works with proton number (species can be given but the value rounds)
+    
+    Examples
+    --------
+    >>> batom = Batom()
+    
+    >>> print(batom[1])
     [1,"H","Hydrogen",12.00]
     
-    >>> batom = load_Batom('by Z')
-    >>> print batom[1]
-    [1,"H","Hydrogen",12.00]
+    >>> print batom[26.1]
+    [26, 'Fe', 'Iron', 7.52]
     
-    >>> batom = load_Batom('by el')
-    >>> print batom['H']
-    [1,"H","Hydrogen",12.00]
+    >>> print(batom['Hg'])
+    [80, 'Hg', 'Mercury', 1.09]
     
-    >>> batom = load_Batom("array")
-    >>> print batom[0]
-    [1,12.00]
-
-MODIFICATION HISTORY:
-       13, Jun 2013: Dylan Gregersen
-                       - Updated comments and format of returns
-                       
+    >>> print(batom['au']
+    [79, 'Au', 'Gold', 0.83]
+    
+    >>> print(batom['ba II'])
+    [56, 'Ba', 'Barium', 2.13]
+    
+    >>> # you can also give a list/array of Z
+    >>> batom[[22.1,22,20.0,25.2]]
+    array([ 4.99,  4.99,  6.36,  5.39])
+    
+    >>> # can use to convert
+    >>> batom.convert_to_xfe(22, 3.1, -2.3)
+    0.4099999999999997
+    
+    >>> batom.convert_to_xfe([22,22,20,25],[3.1,3.2,4.4,3.1],-2.3)
+    array([ 0.41,  0.51,  0.34,  0.01])
+    
+    Modification History
+    --------------------
+    13, Jun 2013: Dylan Gregersen
+        - Updated comments and format of returns
+    20 July 2013: Dylan Gregersen
+        - changed from a function to a class
+              
     """
+    
     batom=[[1,"H","Hydrogen",12.00],
             [2,"He","Helium",10.99],
             [3,"Li","Lithium",3.31],
@@ -183,42 +205,190 @@ MODIFICATION HISTORY:
             [93,"Np","Neptunium",0.00],
             [94,"Pu","Plutonium",0.00],
             [95,"Am","Americium",0.00]]
+    
+    def __init__ (self):
+        self.batom_by_el={}
+        self.batom_by_z ={}
+        for i in range(len(self.batom)): 
+            self.batom_by_el[self.batom[i][1].lower()] = self.batom[i]
+            self.batom_by_z [self.batom[i][0]] = self.batom[i]
 
-    return_as = return_as.lower()
-    # return as a dictionary
-    if return_as in ('by z','by el'): 
-        # determine which dictionary was desired
-        if return_as == 'by el': which = 1
-        else: which = 0
+        # TODO: add a method to convert to Si scale
+        self._scale = 'H' 
+
+    def __repr__ (self):
+        return "instance of Batom.f"
+     
+    def __str__ (self):
+        rep = ['[',str(self.batom[0]),",\n"]
+        for i in xrange(1,len(self.batom)-1):
+            rep += [" ",str(self.batom[i]),",\n"]
+            
+        rep += [" ",str(self.batom[-1]),"]\n"]
+        return ''.join(rep)
         
-        batomd={}
-        for i in range(len(batom)): batomd[batom[i][which]] = batom[i]
-        return batomd
-
-    # create a numpy array and return
-    elif return_as in ('array','as np','arr'):
-        batom_np = np.array([[arr[0],arr[3]] for arr in batom])
-        return batom_np
-
-    # return list given above
-    else: return batom
+    @property
+    def elements (self):
+        """ list of the element names """
+        return [x[1] for x in self.batom]
     
-def logeps_2_xfe (z,logeps,feh):
-    z = round(z)
-    batom = load_Batom("by z")
+    @property
+    def array (self):
+        """ 2-D ndarray with columns (Z,solar_abund)"""
+        return np.array([[x[0],x[-1]] for x in self.batom])
     
-    # feh = feh_loggeps - feh_sun
-    xfe = logeps - (feh + batom[z][3])
-    return xfe
-
-def xfe_2_logeps (z,xfe,feh):
-    z = round(z)
-    batom = load_Batom("by z")
-    
-    # feh = feh_loggeps - feh_sun
-    logeps = xfe + (feh + batom[z][3])
-    return logeps 
+    def convert_to_logeps (self, spe, xfe, feh):
+        """
         
+        Convert value in [X/Fe] to logeps solar hydrogen scale
+        
+        [Fe/H] = logeps(Fe) - logeps(Fe)_sun
+        logeps(X) = [X/Fe] + ([Fe/H] + logeps(X)_sun)
+    
+        Parameters
+        ----------
+        spe : float or array of floats
+            Gives the specie(s) which correspond to the [X/Fe] values
+        xfe : float or array of floats
+            Gives the [X/Fe] bracket notation of the abundance for the 
+            corresponding species
+        feh : float
+            the [Fe/H] value to be used for the converstion
+            
+        Returns
+        -------
+        if spe is a float:
+            logeps : float
+                The abundance of the species with abundance [X/Fe]
+        if spe is an array of floats:
+            logeps : array
+                The abudnaces for the species with abundances [X/Fe]
+
+        """
+        return xfe + (feh + self.solar_abundance(spe))
+        
+    def convert_to_xfe (self, spe, logeps, feh):
+        """
+        
+        Convert value in logeps solar hydrogen scale to [X/Fe]
+        
+        [Fe/H] = logeps(Fe) - logeps(Fe)_sun
+        [X/Fe] = logeps(X) - ([Fe/H] + logeps(X)_sun)
+
+        Parameters
+        ----------
+        spe : float or array of floats
+            Gives the specie(s) which correspond to the logeps values
+        xfe : float or array of floats
+            Gives the logeps notation of the abundance for the 
+            corresponding species
+        feh : float
+            the [Fe/H] value to be used for the converstion
+            
+        Returns
+        -------
+        if spe is a float:
+            xfe : float
+                The abundance of the species with abundance logeps
+        if spe is an array of floats:
+            xfe : array
+                The abudnaces for the species with abundances logeps
+                
+        """
+        return logeps - (feh + self.solar_abundance(spe))
+
+    def solar_abundance (self,spe):
+        """
+        Get the solar logeps abundance for a species (or list of species)
+        
+        Parameters
+        ----------
+        spe : float or array of floats
+            Give the species identification for which to return the solar abundance
+                    
+        Returns
+        -------
+        if spe is float:
+            logeps : float
+        if spe is array of floats:
+            logeps : array
+        """
+        
+        getitem = self.__getitem__(spe)
+        if isinstance(getitem,list):
+            return getitem[3]
+        elif isinstance(getitem,np.ndarray):
+            return getitem
+        else:
+            raise StandardError("Whoops, error in logic I should only"\
+                                " have received a list or ndarray")
+
+    def _single_species_name (self,spe):
+        if isinstance(spe,int):
+            return self[spe][1]
+        
+        elif isinstance(spe,float):
+            z = self[spe][1]
+            ionz = int(round((spe - round(spe-0.5))*10))+1
+            return z+" "+int_to_roman(ionz)
+        
+        else:
+            return 'unknown'
+
+    def species_name (self,spe):
+        """
+        Takes a species id and converts to a name representation
+        
+        species_id := proton_number + 0.1*(ionization_state)
+        where the ionization_state is 0 for ground, 1 for singally, etc
+        
+        """
+        if isinstance(spe,(float,int)):
+            return self._single_species_name(spe)
+        elif isinstance(spe,(list,tuple,np.ndarray)):
+            return [self._single_species_name(s) for s in spe]
+        else:
+            raise TypeError("must receive either a floating value of the species or an array")
+
+    def __iter__ (self):
+        return iter(self.batom)
+
+    def __contains__ (self,spe):
+        if isinstance(spe,str):
+            return spe.lower().strip().split()[0] in [x.lower() for x in self.elements]
+        if isinstance(spe,float) or isinstance(spe,int):
+            return spe in self.array[:,0]
+    
+    def __reversed__ (self):
+        return reversed(self.batom)
+    
+    def __len__ (self):
+        return len(self.batom)
+
+    def _getitem (self,spe):
+        """ check input and return appropriate output """
+        
+        if isinstance(spe,str):
+            return self.batom_by_el[spe.lower().strip().split()[0]]
+        
+        if isinstance(spe,int) or isinstance(spe,float):
+            return self.batom_by_z[int(spe)]
+
+        if isinstance(spe,list):
+            try: spe = np.asarray(spe,dtype=int)
+            except IndexError:
+                raise IndexError("arrays used as indices must be of integer (or boolean) type")
+        
+        if isinstance(spe,np.ndarray):
+            if spe.shape[0] == 0: return np.array([])
+            idx = np.round(spe)-1
+            return self.array[idx.astype(int)][:,1]
+            
+    def __getitem__ (self,spe):
+        try: return self._getitem(spe)
+        except KeyError:
+            raise KeyError("Please enter valid element name or Z, not "+str(spe))
+
 def get_model_name (teff,logg,feh,vt,modtype=None):
     """
 PURPOSE:
@@ -1867,62 +2037,78 @@ pass
 #####################################################################################################################
 # abfind driver functions
 
-def parse_abfind_summary_out (fname):
+def parse_abfind_summary_out (summary_out, logeps=True):
     """
-PURPOSE:
-   This reads through a MOOG abfind summary out file and extracts the abundance information
-
-CATEGORY:
-   MOOG functions
-
-INPUT ARGUMENTS:
-    fname : (string) Gives the filename of the MOOG abfind summary out file
-
-INPUT KEYWORD ARGUMENTS:
-    None
-
-OUTPUTS:
-   (array) Line list data in an array with columns : (wavelength,species,ep, loggf, ew, abundance)
+    This reads through a MOOG abfind summary out file and extracts the abundance information
        
-DEPENDENCIES:
-   External Modules Required
-   =================================================
-   Numpy, re
-   
-   External Functions and Classes Required
-   =================================================
-    load_Batom
-       
-NOTES:
-   (1) It needs load_Batom to convert element names to species identifiers (e.g. Fe I ==> 26.0)
-
-EXAMPLE:
-   >>> abfind_linelist = parse_abfind_summary_out("moog_abfind_sum.txt")
-   >>>
-
-MODIFICATION HISTORY:
+    Parameters
+    ----------
+    summary_out : string 
+        Gives the filename of the MOOG abfind summary out file    
+    
+    logeps : boolean
+        If 'True' then it returns the abundance as logeps if 'False' then returns
+        in [X/Fe] notation
+        
+    Returns
+    -------
+    abundances : ndarray 
+        This array has columns: wavelength, species, ep, loggf, ew, abundance
+    
+    
+    Notes
+    -----
+    
+    
+    Examples
+    --------
+    >>> abunds = parse_abfind_summary_out("summary_out.sum")
+    >>>
+    
+    
+    
+    Modification History
+    --------------------
     12, Jun 2013: Tim Anderton    
     13, Jun 2013: Dylan Gregersen
-                    - replaced original dictionary with load_Batom which does the same task
-    
+        - replaced original dictionary with load_Batom which does the same task
 
     """
+    header = {'info':None,
+              'teff':None,
+              'logg':None,
+              'feh':None,
+              'vt':None}
     
     abundancestatistics = {} #mean abundance and standard deviation pairs
     linedata = {}
-    infile = open(fname, "rb")
+    infile = open(summary_out, "rb")
+    
+    # define the expressions to find
+    paramsexp = re.compile("(\d+\.[\d+, *]) +(\d*\.\d+) +([\ ,+,-]\d\.\d+) +(\d*\.\d+)") #teff,logg,feh,vt
     elemidentexp = re.compile(r"Abundance Results for Species [A-Z][a-z]* +I+")
-    
-    lineabexp = re.compile(r"   \d\d\d\d\.\d\d ")
-    
+    lineabexp = re.compile(r" *(\d+\.\d+) +(\d+\.\d+) +")
     statlineexp = re.compile(r"average abundance = +\d\.\d\d +std\. +deviation = +\d\.\d\d")
     
     # modellineexp = re.compile(r"\d+g\d\.\d\dm-?\d\.\d+\v\d")
     currentspecies = None
     
-    for line in infile:
-        l = lineabexp.match(line)
-        if l:
+    for i,line in enumerate(infile):
+        p = paramsexp.search(line)
+        if p is not None:
+            teff,logg,feh,vt = [float(st) for st in p.groups()]
+            header['teff'] = teff
+            header['logg'] = logg 
+            header['feh'] = feh 
+            header['vt'] = vt 
+            continue
+        
+        if i == 0:
+            header['info'] = line.rstrip()
+            continue
+                                
+        _l = lineabexp.match(line)
+        if _l is not None:
             #print "new linedata", line
             #line is ordered like wv ep logGF EW logrw, abund, del avg
             linedatum = [float(st) for st in line.split()]
@@ -1930,7 +2116,7 @@ MODIFICATION HISTORY:
             continue
         
         m = elemidentexp.search(line)
-        if m:
+        if m is not None:
             #print "new element", line
             elemline = m.group().split()
             currentspecies = elemline[-2] + " " + elemline[-1]
@@ -1940,7 +2126,7 @@ MODIFICATION HISTORY:
             continue
         
         s = statlineexp.search(line)
-        if s:
+        if s is not None:
             #print "new stat"
             spl = s.group().split()
             meanab = float(spl[3])
@@ -1948,9 +2134,10 @@ MODIFICATION HISTORY:
             num = line.split()[-1]
             abundancestatistics[currentspecies].append([meanab, sig, num])
             continue
+        
     infile.close()
     out_ldat = []
-    batom = load_Batom('by el')
+    batom = Batom()
     for cspecies in linedata.keys():
         for lidx in range(len(linedata[cspecies])):
             ldm = linedata[cspecies][lidx]
@@ -1959,5 +2146,41 @@ MODIFICATION HISTORY:
             #output line list format Wv, species, ep, logGF, EW, Abundance
             out_ldat.append((ldm[0], species_id_num, ldm[1], ldm[2], ldm[3], ldm[5]))
     out_ldat = np.array(out_ldat)
-    return out_ldat
+    
+    if logeps:
+        return out_ldat, header
+
+    # convert logeps to [X/Fe]
+    elements = np.round(out_ldat[:,1])
+    fe_idx = (elements==26.0)
+    feh = np.mean(out_ldat[:,5][fe_idx]) - batom['Fe'][-1]
+    
+    for z in np.unique(elements):
+        out_ldat[:,5][fe_idx] = batom.convert_to_xfe(z,out_ldat[:,5][fe_idx],feh)
+
+    return out_ldat, header
+
+def abundance_totals (data):
+    """
+    Take the data output from the function parse_abfind_summary_out and combine the abundances and perform statistics checks
+    
+    """
+    errmsg = "data must be a 2-D numpy array (N_lines,N_columns) where columns=(wavelength, species, ep, loggf, ew, abundance)"
+    if not isinstance(data,np.ndarray):
+        raise TypeError(errmsg)
+    
+    if data.ndim != 2 or data.shape[1] != 6:
+        raise ValueError(errmsg)
+    
+    species =  np.sort(np.unique(data[:,1]))
+    # batom = Batom()
+    # species_names = [batom[x][1] for x in species]
+    
+    abundances = []
+    for spe in species:
+        abunds = data[data[:,1] == spe]        
+        N = len(abunds)
+        abundances.append([spe,np.mean(abunds[:,5]),np.std(abunds[:,5]),N])
+        
+    return np.array(abundances)
 
