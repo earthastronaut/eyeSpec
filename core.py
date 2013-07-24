@@ -491,7 +491,7 @@ def user_choices (choices,question="Please pick one :",default=0,prompt=None):
         choice = raw_input(str(prompt))
         choice = choice.replace("'","")
         if not choice:
-            return str_choices[default]
+            return np.array([default])
         
         if choice in ('a','abort'):
             return np.where(str_choices=='a')[0]
