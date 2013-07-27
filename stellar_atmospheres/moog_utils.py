@@ -33,6 +33,10 @@ def user_get_smoothing_func_pars (smoothing_func_pars):
         output[key] = value
     return output
 
+pass
+
+# TODO: change Batom to be AbundanceSystem, which will contain the AndersGreeves(Batom) and Lodders, etc
+
 class Batom (object):
     """
     
@@ -157,14 +161,14 @@ class Batom (object):
             [43,"Tc","Technetium",0.00],
             [44,"Ru","Ruthenium",1.84],
             [45,"Rh","Rhodium",1.12],
-            [46,"Pb","Palladium",1.69],
+            [46,"Pd","Palladium",1.69],
             [47,"Ag","Silver",1.24],
             [48,"Cd","Cadmium",1.86],
             [49,"In","Indium",0.82],
             [50,"Sn","Tin",2.00],
             [51,"Sb","Antimony",1.04],
             [52,"Te","Tellurium",2.24],
-            [53,"In","Iodine",1.51],
+            [53,"I","Iodine",1.51],
             [54,"Xe","Xenon",2.23],
             [55,"Cs","Caesium",1.12],
             [56,"Ba","Barium",2.13],
@@ -207,6 +211,7 @@ class Batom (object):
             [93,"Np","Neptunium",0.00],
             [94,"Pu","Plutonium",0.00],
             [95,"Am","Americium",0.00]]
+        
     
     def __init__ (self):
         self.batom_by_el={}
@@ -214,9 +219,6 @@ class Batom (object):
         for i in range(len(self.batom)): 
             self.batom_by_el[self.batom[i][1].lower()] = self.batom[i]
             self.batom_by_z [self.batom[i][0]] = self.batom[i]
-
-        # TODO: add a method to convert to Si scale
-        self._scale = 'H' 
 
     def __repr__ (self):
         return "instance of Batom.f"
