@@ -26,3 +26,5 @@ from moog import run_ewfind, ewfind_model
 from moog_utils import (get_model_name, read_moog_linelist, write_moog_par, write_moog_lines_in,  #@UnusedImport
                             parse_synth_summary_out, parse_synth_standard_out, parse_abfind_summary_out,  #@UnusedImport
                             process_moog_synth_output, crop_data_table) #@UnusedImport
+
+from utils import abundance, periodic_table
