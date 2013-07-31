@@ -21,18 +21,25 @@ import math
 import os 
 import sys 
 from datetime import datetime
-# !! check the version of python to be < 3.0
+import re 
+import Queue 
+from glob import glob
+import subprocess
+import operator
+iget = operator.itemgetter
+import platform
+platform.python_version_tuple()
 
 
 import time
 from copy import deepcopy
+
 import pdb 
-import operator
-iget = operator.itemgetter
+
+
 import threading 
-import Queue 
-import subprocess 
-import re 
+
+
 
 
 #==============================================================================#
