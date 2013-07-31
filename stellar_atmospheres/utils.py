@@ -1,34 +1,8 @@
 
 from ..dependencies import np, np_recfunc
 from ..core import int_to_roman
-
 import pdb #@UnusedImport
 
-class AbundanceNormalization (object):
-    
-    # TODO: impliment this chaning of normalization  
-    def __init__ (self):
-        self._scale = "H"
-        self._scale_opts = ('H','Si')
-
-    def convert_to (self,instance,scale):
-        # convert the input to that scale
-        pass
-    
-    def __get__ (self,_instance,_owner):
-        return self._scale
-    
-    def __set__ (self,_instance,value):
-        
-        if not isinstance(value,str):
-            raise TypeError("given scale option must be string")
-        
-        if value not in self._scale_opts:
-            print("no scale option "+str(value))
-        # set instance._current = [abundances]
-        
-        self._scale = value
-        pass
 
 class PeriodicTable (object):
     # this holds the Z,el,element_name
@@ -213,8 +187,15 @@ class PeriodicTable (object):
             return np.array([self._getitem_single(s) for s in spe],dtype=self.table_data.dtype)
             
         if isinstance(spe,np.ndarray):
+            if spe.ndim != 1:
+                raise ValueError("numpy array must be single dimensional")
+            
             if spe.shape[0] == 0: 
                 return np.array([],dtype=self.table_data.dtype)
+
+            if spe.dtype.type == np.str_:
+                return np.array([self._getitem_single(s) for s in spe],dtype=self.table_data.dtype)
+                            
             idx = np.round(spe)-1
             return self.table_data[idx.astype(int)]
       
@@ -226,6 +207,64 @@ class PeriodicTable (object):
 
 periodic_table = PeriodicTable()
 
+class AbundanceNormalization (object):
+    
+    # TODO: impliment this changing of normalization  
+    def __init__ (self):
+        self._scale = "H"
+        self._scale_opts = ('H','Si')
+
+    def convert_to (self,instance,scale):
+        # convert the input to that scale
+        pass
+    
+    def __get__ (self,_instance,_owner):
+        return self._scale
+    
+    
+    def _check_value (self,value):
+        if not isinstance(value,str):
+            raise TypeError("given scale option must be string")
+        
+        if value not in self._scale_opts:
+            raise ValueError("no scale option "+str(value))
+            
+    
+    def _force_set (self,value):
+        self._check_value(value)
+        self._scale = value
+    
+    def __set__ (self,instance,value):
+        
+        if not isinstance(instance,AbundanceSystem):
+            raise TypeError("This should be an implementation of an AbundanceSystem")
+        
+        self._check_value(value)
+
+        # if the value is equal to the current then no change
+        if value == self._scale:
+            return
+
+
+        (abund_h,_err),(abund_si,_err) = instance.solar_abundance(('H','Si'))
+        # if in H scale and converting to Si
+        if self._scale == "H" and value == 'Si':
+            if abund_si == 6.0:
+                return
+            diff = 6.0 - abund_si
+            
+        # convert Si to H
+        elif self._scale == 'Si' and value == 'H':
+            if abund_h == 12.0:
+                return
+            diff = 12.0 - abund_h
+        else:
+            raise StandardError("Whoops, this shouldn't happen")
+    
+        instance._table_data['abundance'] += diff  
+        instance._init_str_representation()       
+        self._scale = value
+
 class AbundanceSystem (PeriodicTable):
     # For every value on the periodic_table it has a corresponding (abund,error)
     # have ways to input Z,el as value or array and get back abund,error
@@ -233,7 +272,7 @@ class AbundanceSystem (PeriodicTable):
     # methods for [x/fe],[x/y] and logeps conversions
         
     # have a atomic_normalization that it has.
-    abundance_norm = AbundanceNormalization()   
+    normalization = AbundanceNormalization()   
     def __init__ (self,citation,data,normalization='H'):
         """ 
         Stores the data for a particular system of abundances to normalize to
@@ -325,9 +364,9 @@ class AbundanceSystem (PeriodicTable):
             
             abund = float(row[1])
             if len(row)>2:
-                error = float(row[2] or np.nan)**2
+                error = float(row[2] or np.inf)**2
             else:
-                error = np.nan
+                error = np.inf
             
             by_z[int(spe[0]-1)] = (abund,error)
         
@@ -335,7 +374,7 @@ class AbundanceSystem (PeriodicTable):
         abunds = []
         sigma = []
         for i in xrange(len(self)):
-            a,v = by_z.get(i,(np.nan,np.nan))
+            a,v = by_z.get(i,(np.nan,np.inf))
             abunds.append(a)
             sigma.append(v)
                 
@@ -344,7 +383,7 @@ class AbundanceSystem (PeriodicTable):
         dtypes = (float,float)
         self._table_data = np_recfunc.append_fields(self.table_data,names,(abunds,sigma),dtypes=dtypes,usemask=False,asrecarray=True)
         
-        self.abundance_norm = normalization
+        self.normalization = normalization
         
         self._init_str_representation()
 
@@ -531,7 +570,7 @@ class _CurrentSystem (object):
         return self._current_system
     
     def __set__ (self,instance,name):
-        if not isinstance(instance,Abundance):
+        if not isinstance(instance,SolarAbundance):
             raise TypeError("This class is meant to be used by AbundanceStandards")
         
         if name not in instance._abundance_systems:
@@ -544,16 +583,16 @@ class _CurrentSystem (object):
         
         instance._table_data = abundance_system._table_data
         instance._citation = abundance_system._citation
-        instance.abundance_norm = abundance_system.abundance_norm
+        instance.normalization = abundance_system.normalization
         instance._str_rep = abundance_system._str_rep
         
-class Abundance (AbundanceSystem):
+class SolarAbundance (AbundanceSystem):
      
     # TODO: write doc string
         
     system = _CurrentSystem() 
     def __init__ (self,abundance_systems,system=None):
-        super(Abundance,self).__init__('None',[])
+        super(SolarAbundance,self).__init__('None',[])
         
         if not isinstance(abundance_systems,AbundanceSystems):
             raise TypeError("Abundance system must be of class AbundanceSystems")
@@ -570,110 +609,111 @@ class Abundance (AbundanceSystem):
             self.system = system
      
     def __doc__ (self):
-        super(Abundance,self).__doc__()
+        super(SolarAbundance,self).__doc__()
      
     @property
     def systems (self):
         return self._abundance_systems.keys()
 
 # TODO: Changed the data to be stored in the es-data as a database
+
 def _data_sets ():
     # TODO: Write doc string
-    _batom = [(1, 12.0, np.nan),
-             (2, 10.99, np.nan),
-             (3, 3.31, np.nan),
-             (4, 1.42, np.nan),
-             (5, 2.88, np.nan),
-             (6, 8.56, np.nan),
-             (7, 8.05, np.nan),
-             (8, 8.93, np.nan),
-             (9, 4.56, np.nan),
-             (10, 8.09, np.nan),
-             (11, 6.33, np.nan),
-             (12, 7.58, np.nan),
-             (13, 6.47, np.nan),
-             (14, 7.55, np.nan),
-             (15, 5.45, np.nan),
-             (16, 7.21, np.nan),
-             (17, 5.5, np.nan),
-             (18, 6.56, np.nan),
-             (19, 5.12, np.nan),
-             (20, 6.36, np.nan),
-             (21, 3.1, np.nan),
-             (22, 4.99, np.nan),
-             (23, 4.0, np.nan),
-             (24, 5.67, np.nan),
-             (25, 5.39, np.nan),
-             (26, 7.52, np.nan),
-             (27, 4.92, np.nan),
-             (28, 6.25, np.nan),
-             (29, 4.21, np.nan),
-             (30, 4.6, np.nan),
-             (31, 2.88, np.nan),
-             (32, 3.41, np.nan),
-             (33, 2.37, np.nan),
-             (34, 3.35, np.nan),
-             (35, 2.63, np.nan),
-             (36, 2.23, np.nan),
-             (37, 2.6, np.nan),
-             (38, 2.9, np.nan),
-             (39, 2.24, np.nan),
-             (40, 2.6, np.nan),
-             (41, 1.42, np.nan),
-             (42, 1.92, np.nan),
-             (43, 0.0, np.nan),
-             (44, 1.84, np.nan),
-             (45, 1.12, np.nan),
-             (46, 1.69, np.nan),
-             (47, 1.24, np.nan),
-             (48, 1.86, np.nan),
-             (49, 0.82, np.nan),
-             (50, 2.0, np.nan),
-             (51, 1.04, np.nan),
-             (52, 2.24, np.nan),
-             (53, 1.51, np.nan),
-             (54, 2.23, np.nan),
-             (55, 1.12, np.nan),
-             (56, 2.13, np.nan),
-             (57, 1.22, np.nan),
-             (58, 1.55, np.nan),
-             (59, 0.71, np.nan),
-             (60, 1.5, np.nan),
-             (61, 0.0, np.nan),
-             (62, 1.0, np.nan),
-             (63, 0.51, np.nan),
-             (64, 1.12, np.nan),
-             (65, 0.33, np.nan),
-             (66, 1.1, np.nan),
-             (67, 0.5, np.nan),
-             (68, 0.93, np.nan),
-             (69, 0.13, np.nan),
-             (70, 1.08, np.nan),
-             (71, 0.12, np.nan),
-             (72, 0.88, np.nan),
-             (73, 0.13, np.nan),
-             (74, 0.68, np.nan),
-             (75, 0.27, np.nan),
-             (76, 1.45, np.nan),
-             (77, 1.35, np.nan),
-             (78, 1.8, np.nan),
-             (79, 0.83, np.nan),
-             (80, 1.09, np.nan),
-             (81, 0.82, np.nan),
-             (82, 1.85, np.nan),
-             (83, 0.71, np.nan),
-             (84, 0.0, np.nan),
-             (85, 0.0, np.nan),
-             (86, 0.0, np.nan),
-             (87, 0.0, np.nan),
-             (88, 0.0, np.nan),
-             (89, 0.0, np.nan),
-             (90, 0.12, np.nan),
-             (91, 0.0, np.nan),
-             (92, 0.0, np.nan),
-             (93, 0.0, np.nan),
-             (94, 0.0, np.nan),
-             (95, 0.0, np.nan)]
+    _batom = [(1, 12.0, np.inf),
+              (2, 10.99, np.inf),
+              (3, 3.31, np.inf),
+              (4, 1.42, np.inf),
+              (5, 2.88, np.inf),
+              (6, 8.56, np.inf),
+              (7, 8.05, np.inf),
+              (8, 8.93, np.inf),
+              (9, 4.56, np.inf),
+              (10, 8.09, np.inf),
+              (11, 6.33, np.inf),
+              (12, 7.58, np.inf),
+              (13, 6.47, np.inf),
+              (14, 7.55, np.inf),
+              (15, 5.45, np.inf),
+              (16, 7.21, np.inf),
+              (17, 5.5, np.inf),
+              (18, 6.56, np.inf),
+              (19, 5.12, np.inf),
+              (20, 6.36, np.inf),
+              (21, 3.1, np.inf),
+              (22, 4.99, np.inf),
+              (23, 4.0, np.inf),
+              (24, 5.67, np.inf),
+              (25, 5.39, np.inf),
+              (26, 7.52, np.inf),
+              (27, 4.92, np.inf),
+              (28, 6.25, np.inf),
+              (29, 4.21, np.inf),
+              (30, 4.6, np.inf),
+              (31, 2.88, np.inf),
+              (32, 3.41, np.inf),
+              (33, 2.37, np.inf),
+              (34, 3.35, np.inf),
+              (35, 2.63, np.inf),
+              (36, 2.23, np.inf),
+              (37, 2.6, np.inf),
+              (38, 2.9, np.inf),
+              (39, 2.24, np.inf),
+              (40, 2.6, np.inf),
+              (41, 1.42, np.inf),
+              (42, 1.92, np.inf),
+              (43, 0.0, np.inf),
+              (44, 1.84, np.inf),
+              (45, 1.12, np.inf),
+              (46, 1.69, np.inf),
+              (47, 1.24, np.inf),
+              (48, 1.86, np.inf),
+              (49, 0.82, np.inf),
+              (50, 2.0, np.inf),
+              (51, 1.04, np.inf),
+              (52, 2.24, np.inf),
+              (53, 1.51, np.inf),
+              (54, 2.23, np.inf),
+              (55, 1.12, np.inf),
+              (56, 2.13, np.inf),
+              (57, 1.22, np.inf),
+              (58, 1.55, np.inf),
+              (59, 0.71, np.inf),
+              (60, 1.5, np.inf),
+              (61, 0.0, np.inf),
+              (62, 1.0, np.inf),
+              (63, 0.51, np.inf),
+              (64, 1.12, np.inf),
+              (65, 0.33, np.inf),
+              (66, 1.1, np.inf),
+              (67, 0.5, np.inf),
+              (68, 0.93, np.inf),
+              (69, 0.13, np.inf),
+              (70, 1.08, np.inf),
+              (71, 0.12, np.inf),
+              (72, 0.88, np.inf),
+              (73, 0.13, np.inf),
+              (74, 0.68, np.inf),
+              (75, 0.27, np.inf),
+              (76, 1.45, np.inf),
+              (77, 1.35, np.inf),
+              (78, 1.8, np.inf),
+              (79, 0.83, np.inf),
+              (80, 1.09, np.inf),
+              (81, 0.82, np.inf),
+              (82, 1.85, np.inf),
+              (83, 0.71, np.inf),
+              (84, 0.0, np.inf),
+              (85, 0.0, np.inf),
+              (86, 0.0, np.inf),
+              (87, 0.0, np.inf),
+              (88, 0.0, np.inf),
+              (89, 0.0, np.inf),
+              (90, 0.12, np.inf),
+              (91, 0.0, np.inf),
+              (92, 0.0, np.inf),
+              (93, 0.0, np.inf),
+              (94, 0.0, np.inf),
+              (95, 0.0, np.inf)]
     
     
     _lodders03 =[("h", 12.0, 0.0),
@@ -759,18 +799,118 @@ def _data_sets ():
                 ("bi", 0.68, 0.03),
                 ("th", 0.09, 0.04),
                 ("u", -0.49, 0.04)]
-    return _batom,_lodders03
+    
+    # the forth column is a flag
+    # 0 = good photosphere measurement
+    # 1 = uncertain photosphere measurement
+    # 2 = good meteoritic measurement
+    # Hydrogen has no error or flag
+    _asplund09 =  [("H" , 12.0, np.inf, np.nan),
+                  ("He" , 10.93, 0.01, 1),
+                  ("Li" , 1.05, 0.1, 0),
+                  ("Be" , 1.38, 0.09, 0),
+                  ("B" , 2.7, 0.2, 0),
+                  ("C" , 8.43, 0.05, 0),
+                  ("N" , 7.83, 0.05, 0),
+                  ("O" , 8.69, 0.05, 0),
+                  ("f" , 4.56, 0.3, 0),
+                  ("ne" , 7.93, 0.1, 1),
+                  ("Na" , 6.24, 0.04, 0),
+                  ("mg" , 7.6, 0.04, 0),
+                  ("al" , 6.45, 0.03, 0),
+                  ("si" , 7.51, 0.03, 0),
+                  ("p" , 5.41, 0.03, 0),
+                  ("s" , 7.12, 0.03, 0),
+                  ("cl" , 5.5, 0.3, 0),
+                  ("ar" , 6.4, 0.13, 1),
+                  ("k" , 5.03, 0.09, 0),
+                  ("ca" , 6.34, 0.04, 0),
+                  ("sc" , 3.15, 0.04, 0),
+                  ("ti" , 4.95, 0.05, 0),
+                  ("v" , 3.93, 0.08, 0),
+                  ("cr" , 5.64, 0.04, 0),
+                  ("mn" , 5.43, 0.04, 0),
+                  ("fe" , 7.5, 0.04, 0),
+                  ("co" , 4.99, 0.07, 0),
+                  ("ni" , 6.22, 0.04, 0),
+                  ("cu" , 4.19, 0.04, 0),
+                  ("zn" , 4.56, 0.05, 0),
+                  ("ga" , 3.04, 0.09, 0),
+                  ("ge" , 3.65, 0.1, 0),
+                  ("as" , 2.30, 0.04, 2),
+                  ("se" , 3.34, 0.03, 2),
+                  ("br" , 2.54, 0.06, 2), 
+                  ("kr" , 3.25, 0.06, 1),
+                  ("rb" , 2.52, 0.1, 0),
+                  ("sr" , 2.87, 0.07, 0),
+                  ("y" , 2.21, 0.05, 0),
+                  ("zr" , 2.58, 0.04, 0),
+                  ("nb" , 1.46, 0.04, 0),
+                  ("mo" , 1.88, 0.08, 0),
+                  ("ru" , 1.75, 0.08, 0),
+                  ("rh" , 0.91, 0.1, 0),
+                  ("pd" , 1.57, 0.1, 0),
+                  ("ag" , 0.94, 0.1, 0),
+                  ("cd" , 1.71, 0.03, 2),
+                  ("in" , 0.8, 0.2, 0),
+                  ("sn" , 2.04, 0.1, 0),
+                  ("sb" , 1.01, 0.06, 2),
+                  ("te" , 2.18, 0.03, 2),
+                  ("i" , 1.55, 0.08, 2),
+                  ("xe" , 2.24, 0.06, 1),
+                  ("cs" , 1.08, 0.02, 2),
+                  ("ba" , 2.18, 0.09, 0),
+                  ("la" , 1.1, 0.04, 0),
+                  ("ce" , 1.58, 0.04, 0),
+                  ("pr" , 0.72, 0.04, 0),
+                  ("nd" , 1.42, 0.04, 0),
+                  ("sm" , 0.96, 0.04, 0),
+                  ("eu" , 0.52, 0.04, 0),
+                  ("gd" , 1.07, 0.04, 0),
+                  ("tb" , 0.3, 0.1, 0),
+                  ("dy" , 1.1, 0.04, 0),
+                  ("ho" , 0.48, 0.11, 0),
+                  ("er" , 0.92, 0.05, 0),
+                  ("tm" , 0.1, 0.04, 0),
+                  ("yb" , 0.84, 0.11, 0),
+                  ("lu" , 0.1, 0.09, 0),
+                  ("hf" , 0.85, 0.04, 0),
+                  ("ta" , -0.12, 0.04, 2),
+                  ("w" , 0.85, 0.12, 0),
+                  ("re" , 0.26, 0.04, 2),
+                  ("os" , 1.4, 0.08, 0),
+                  ("ir" , 1.38, 0.07, 0),
+                  ("pt" , 1.26, 0.03, 2),
+                  ("au" , 0.92, 0.1, 0),
+                  ("hg" , 1.17, 0.08, 2),
+                  ("tl" , 0.9, 0.2, 0),
+                  ("pb" , 1.75, 0.1, 0),
+                  ("bi" , 0.65, 0.04, 2),
+                  ("th" , 0.02, 0.1, 0),
+                  ("u" , -0.54, 0.03, 0)]
+    
+    return _batom,_lodders03,_asplund09
+_batom,_lodders03,_asplund09 = _data_sets()
 
-_batom,_lodders03 = _data_sets()
+# declare each of the abundance systems here
 l03 = AbundanceSystem(('Lodders, K. 2003 Solar System Abundances and Condensation ' \
                       'Temperatures of the Element, APJ, 591:1220-1247'),_lodders03)
-batom = AbundanceSystem(("the set of current solar (when available) or meteorite "       
+
+asplund09 = AbundanceSystem(("Asplund, M., Grevesse, N., Sauval, A. Jacques, Scott, P. "\
+                             "2009 The Chemical Composition of the Sun. Annual Review of "\
+                             "Astronomy and Astrophysics. 47:481-522 "),_asplund09)
+
+moog = AbundanceSystem(("Batom.f 'the set of current solar (when available) or meteorite "       
                          'abundances, scaled to log(h) = 12.00 .  The data are from Anders '
                          'and Grevesse (1989, Geochim.Cosmichim.Acta, v53, p197) and the solar '
                          "values are adopted except for a) uncertain solar data, or b) Li, Be, "
                          "and B, for which the meteoritic values are adopted. " 
                          "I was told to use the new Fe value of 7.52 as adopted in Sneden "
-                         "et al. 1992 AJ 102 2001."),_batom)
-abundance_systems = AbundanceSystems({'lodder03':l03,'moog':batom})
-abundance = Abundance(abundance_systems,system='moog')
+                         "et al. 1992 AJ 102 2001.'"),_batom)
+
+# combine all solar abundance systems into one dictionary
+abundance_systems = AbundanceSystems({'l03':l03,'moog':moog,'a09':asplund09})
+
+# create the useful solar_abundance object using all the possible systems
+solar_abundance = SolarAbundance(abundance_systems,system='a09')
 
