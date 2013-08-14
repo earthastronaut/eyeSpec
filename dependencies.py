@@ -29,8 +29,6 @@ import operator
 iget = operator.itemgetter
 import platform
 platform.python_version_tuple()
-
-
 import time
 from copy import deepcopy
 
