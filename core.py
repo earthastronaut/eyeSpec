@@ -215,9 +215,10 @@ pass
 
 def reduce_output_shape (arr):
     shape = arr.shape
-    new_shape = ()
+    new_shape = tuple()
     for i in xrange(len(shape)): 
-        if shape[i] != 1: new_shape += (shape[i],)
+        if shape[i] != 1: 
+            new_shape += (shape[i],)
     return arr.reshape(new_shape)
       
 def np_vstack_append (arr,item):
